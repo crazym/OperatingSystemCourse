@@ -51,12 +51,21 @@ sys_fork(struct trapframe *tf, pid_t *retval)
  * sys_getpid
  * Placeholder to remind you to implement this.
  */
+pid_t 
+sys_getpid(void) {
+	
+}
 
 
 /*
  * sys_waitpid
  * Placeholder comment to remind you to implement this.
  */
+pid_t 
+waitpid(pid_t pid, int *returncode, int flags) {
+
+}
+
 
 
 /*
@@ -64,5 +73,9 @@ sys_fork(struct trapframe *tf, pid_t *retval)
  * Placeholder comment to remind you to implement this.
  */
 
+int 
+sys_waitpid(pid_t pid, int *returncode, int flags) {
+
+}
 
 

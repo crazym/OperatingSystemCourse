@@ -72,4 +72,12 @@ int sys_write(int fd, userptr_t buf, size_t size, int *retval);
  */
 void dumb_consoleIO_bootstrap(void);
 
+/*
+ * ASST1 - Prototypes for ASST1 syscalls
+ */
+pid_t sys_getpid(void);
+pid_t sys_waitpid(pid_t pid, int *returncode, int flags);
+int sys_kill(pid_t pid, int signal);
+
+
 #endif /* _SYSCALL_H_ */
