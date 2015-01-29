@@ -3,7 +3,7 @@
 set -e
 
 #echo "Step1: configure ASST1 kernel"
-cd kern/conf
+cd ~/cscc69/a1/kern/conf
 ./config ASST1
 
 #echo "Step2: build ASST1 kernel"
