@@ -52,7 +52,7 @@
  * Calls vfs_open on progname and thus may destroy it.
  */
 int
-runprogram(char *progname)
+runprogram(char *progname, char **args, unsigned long nargs)
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
@@ -95,8 +95,43 @@ runprogram(char *progname)
 		return result;
 	}
 
+	//convert nargs from unsigned long to int
+	int argc = (int) nargs;
+
+	userptr_t user_args[argc];
+	int c, arg_size;
+	for (c = 0; c <  argc; c++) {
+		//args[c] is NULL-terminated, so include the terminator in length
+		arg_size = strlen(args[c]) + 1;
+		//move the stack pointer down 
+		stackptr -= arg_size;
+		//padding if necessary
+		if (stackptr % 4 != 0) {
+			stackptr -= stackptr % 4;
+		}
+		//include the null-terminated
+		args[c][arg_size-1] = '\0';
+		// copy the kernel string into user stack as much as arg_size bytes
+		if ((result = copyoutstr(args[c], (userptr_t) stackptr, arg_size, NULL))) {
+			return result;
+		}
+		user_args[c] = (userptr_t) stackptr;
+		kfree(args[c]);
+	}
+	user_args[argc] = NULL;
+
+	// move stack pointers down by the size of pointers in arguments array
+	int memblock = sizeof(stackptr) * (argc + 1);
+	stackptr -= memblock;
+
+	//Copy the block of memory of length memblock from user_args in kernel space to user stack
+	if ((result = copyout(user_args, (userptr_t) stackptr, memblock))) {
+		return result;
+	}
+	kfree(args);
+
 	/* Warp to user mode. */
-	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
+	enter_new_process(argc /*argc*/, (userptr_t) stackptr /*userspace addr of argv*/,
 			  stackptr, entrypoint);
 	
 	/* enter_new_process does not return. */

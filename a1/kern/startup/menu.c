@@ -82,6 +82,8 @@ free_args(int nargs, char **args)
 	kfree(args);
 }
 
+
+
 static
 char **
 copy_args(int nargs, char **args)
@@ -130,18 +132,14 @@ cmd_progthread(void *ptr, unsigned long nargs)
 
 	KASSERT(nargs >= 1);
 
-	if (nargs > 2) {
-		kprintf("Warning: argument passing from menu not supported\n");
-	}
-
 	/* Hope we fit. */
 	KASSERT(strlen(args[0]) < sizeof(progname));
 
 	strcpy(progname, args[0]);
 	strcpy(progname2,args[0]); /* demke: make extra copy for runprogram */
-	free_args(nargs, args);
+	// free_args(nargs, args);
 
-	result = runprogram(progname2);
+	result = runprogram(progname2, args, nargs);
 	if (result) {
 		kprintf("Running program %s failed: %s\n", progname,
 			strerror(result));
@@ -701,7 +699,6 @@ cmd_dispatch(char *cmd)
 	if (nargs==0) {
 		return 0;
 	}
-
 	for (i=0; cmdtable[i].name; i++) {
 		if (*cmdtable[i].name && !strcmp(args[0], cmdtable[i].name)) {
 			KASSERT(cmdtable[i].func!=NULL);
