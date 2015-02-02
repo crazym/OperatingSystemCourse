@@ -73,8 +73,9 @@ int mallocstress(int, char **);
 int nettest(int, char **);
 
 /* Routine for running a user-level program. */
-int runprogram(char *progname);
-
+int runprogram(char *progname, char **args, unsigned long nargs);
+int copyoutstr(const char *src, userptr_t userdest, size_t len, size_t *actual);
+int copyout(const void *src, userptr_t userdest, size_t len);
 /* Kernel menu system. */
 void menu(char *argstr);
 
