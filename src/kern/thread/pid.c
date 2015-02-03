@@ -410,7 +410,6 @@ pid_exit(int status, bool dodetach)
 int
 pid_join(pid_t targetpid, int *status, int flags)
 {
-	
 	struct pidinfo *pinfo;
 	
 	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
