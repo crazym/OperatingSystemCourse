@@ -76,10 +76,11 @@ sys_getpid(pid_t *retval) {
  	pid_t target_parent = pid_parent(pid);
 
  	// Check if pid_exist, not needed since pid_join does it
- 	if (target_parent < 0)
+ 	if (target_parent == -1)
  		return ESRCH;
 
  	// Check if thread is child
+ 	KASSERT(curthread->t_pid == target_parent);
  	if (curthread->t_pid != target_parent)
  		return ECHILD;
 
@@ -87,7 +88,7 @@ sys_getpid(pid_t *retval) {
  	
  	// If join was unsuccessful
  	if (child < 0)
- 		return child;
+ 		return -child;
  	else
  		*retval = child;
  		return 0;

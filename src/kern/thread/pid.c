@@ -477,12 +477,12 @@ pid_parent(pid_t targetpid) {
 	pi = pi_get(targetpid);
 
 	// If no pid found
-	if (pi == NULL)
-		lock_release(pidlock);
+	if (pi == NULL) {
+		lock_release(pidlock);	
 		return -1;
+	}
 	
 	ppid = pi->pi_ppid;
 	lock_release(pidlock);
-
 	return ppid;
 }
