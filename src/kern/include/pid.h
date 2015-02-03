@@ -71,6 +71,10 @@ void pid_exit(int status, bool dodetach);
 int pid_join(pid_t targetpid, int *status, int flags);
 
 
+/*
+ * pid_parent - returns the parent id of process with targetpid.
+ * If targetpid does not exist, then -1 is returned.
+ */
 pid_t pid_parent(pid_t targetpid);
 
 #endif /* _PID_H_ */
