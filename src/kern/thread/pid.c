@@ -320,27 +320,28 @@ pid_detach(pid_t childpid)
 	lock_acquire(pidlock);
 
 	pinfo = pi_get(childpid);
-	if (pinfo == NULL) {
-		lock_release(pidlock);
+
+	lock_release(pidlock);
+
+	if (pinfo == NULL) {		
 		return ESRCH;
 	}
 
 	//?????thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
-		lock_release(pidlock);
 		return EINVAL;
 	}
 	
 	if (pinfo->pi_ppid != curthread->t_pid) {
-		lock_release(pidlock);
 		return EINVAL;
 	}
 
 	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
-		lock_release(pidlock);
 		return EINVAL;
 	}	
 
+	lock_acquire(pidlock);
+	
 	pinfo->pi_ppid = INVALID_PID;
 	if (pinfo->pi_exited) {
         pi_drop(childpid);
@@ -369,8 +370,6 @@ pid_exit(int status, bool dodetach)
 {
 	struct pidinfo *my_pi;
 	
-	(void)dodetach; /* for compiler - delete when dodetach has real use */
-
 	// Implement me. Existing code simply sets the exit status.
 	lock_acquire(pidlock);
 
@@ -412,47 +411,44 @@ pid_exit(int status, bool dodetach)
 int
 pid_join(pid_t targetpid, int *status, int flags)
 {
-	(void)targetpid;
-	(void)status;
-	(void)flags;
 	
 	struct pidinfo *pinfo;
 	
-	//???If status is not NULL, the exit status of thread targetpid 
-	//is stored in the location pointed to by status.
-	//or other ErrorMsg
-	KASSERT(pinfo != NULL);
+	
 
 	lock_acquire(pidlock);
 
 	pinfo = pi_get(targetpid);
-	if (pinfo == NULL) {
-		lock_release(pidlock);
+
+	lock_release(pidlock);
+	//???If status is not NULL, the exit status of thread targetpid 
+	//is stored in the location pointed to by status.
+	//or other ErrorMsg
+	//KASSERT(pinfo != NULL);
+	if (pinfo == NULL) {	
 		return -ESRCH;
 	}
 
 	//thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
-		lock_release(pidlock);
 		return -EINVAL;
 	}
 	
 	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
-		lock_release(pidlock);
 		return -EINVAL;
 	}
 
 	if (targetpid == curthread->t_pid) {
-		lock_release(pidlock);
 		return -EDEADLK;
 	}
 
 	//??? The thread targetpid must be in the joinable state; 
 	//it must not have been detached using pid_detach.
 	if (pinfo->pi_ppid == INVALID_PID) {
-		lock_release(pidlock);
-		return EINVAL;
+		return -EINVAL;
 	}
+
+	lock_acquire(pidlock);
 
 	//??while or if
 	if (pinfo->pi_exited == false) {
@@ -466,5 +462,5 @@ pid_join(pid_t targetpid, int *status, int flags)
 	pi_drop(targetpid);
 
 	lock_release(pidlock);
-	return 0;
+	return targetpid;
 }
