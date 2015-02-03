@@ -411,24 +411,10 @@ pid_exit(int status, bool dodetach)
 int
 pid_join(pid_t targetpid, int *status, int flags)
 {
+	(void)flags;
 	
 	struct pidinfo *pinfo;
 	
-	
-
-	lock_acquire(pidlock);
-
-	pinfo = pi_get(targetpid);
-
-	lock_release(pidlock);
-	//???If status is not NULL, the exit status of thread targetpid 
-	//is stored in the location pointed to by status.
-	//or other ErrorMsg
-	//KASSERT(pinfo != NULL);
-	if (pinfo == NULL) {	
-		return -ESRCH;
-	}
-
 	//thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
 		return -EINVAL;
@@ -441,26 +427,38 @@ pid_join(pid_t targetpid, int *status, int flags)
 	if (targetpid == curthread->t_pid) {
 		return -EDEADLK;
 	}
+	
+	lock_acquire(pidlock);
+
+	pinfo = pi_get(targetpid);
+
+	//???If status is not NULL, the exit status of thread targetpid 
+	//is stored in the location pointed to by status.
+	//or other ErrorMsg
+	//KASSERT(pinfo != NULL);
+	if (pinfo == NULL) {
+		lock_release(pidlock);	
+		return -ESRCH;
+	}
 
 	//??? The thread targetpid must be in the joinable state; 
 	//it must not have been detached using pid_detach.
 	if (pinfo->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);
 		return -EINVAL;
 	}
-
-	lock_acquire(pidlock);
 
 	//??while or if
 	if (pinfo->pi_exited == false) {
 		//???check this way??
-		KASSERT(flags != WNOHANG);
+		//KASSERT(flags != WNOHANG);
 		cv_wait(pinfo->pi_cv, pidlock);
 	}
 
 	*status = pinfo->pi_exitstatus;
 	pinfo->pi_ppid = INVALID_PID;
 	pi_drop(targetpid);
-
 	lock_release(pidlock);
+
 	return targetpid;
 }
