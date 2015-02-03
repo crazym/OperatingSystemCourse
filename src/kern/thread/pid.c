@@ -373,14 +373,18 @@ pid_t
 pid_parent(pid_t targetpid) {
 	
 	struct pidinfo *pi;
+	pid_t ppid;
 
 	lock_acquire(pidlock);
 	pi = pi_get(targetpid);
-	lock_release(pidlock);
 
 	// If no pid found
 	if (pi == NULL)
+		lock_release(pidlock);
 		return -1;
+	
+	ppid = pi->pi_ppid;
+	lock_release(pidlock);
 
-	return pi->pi_ppid;
+	return ppid;
 }
