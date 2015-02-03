@@ -56,6 +56,7 @@ struct pidinfo {
 	volatile bool pi_exited;	// true if thread has exited
 	int pi_exitstatus;		// status (only valid if exited)
 	struct cv *pi_cv;		// use to wait for thread exit
+	//volatile bool pi_detached;	// true if thread has been detached
 };
 
 
@@ -314,11 +315,39 @@ pid_unalloc(pid_t theirpid)
 int
 pid_detach(pid_t childpid)
 {
-	(void)childpid;
+	struct pidinfo *pinfo;
 	
-	// Implement me
-	KASSERT(false);
-	return EUNIMP;
+	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
+		return EINVAL;
+	}
+
+
+	lock_acquire(pidlock);
+
+	pinfo = pi_get(childpid);
+
+	if (pinfo == NULL) {	
+		lock_release(pidlock);
+		return ESRCH;
+	}
+
+	//?????thread childpid is already in the detached state
+	if (pinfo->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);
+		return EINVAL;
+	}
+	
+	if (pinfo->pi_ppid != curthread->t_pid) {
+		lock_release(pidlock);
+		return EINVAL;
+	}	
+	pinfo->pi_ppid = INVALID_PID;
+	if (pinfo->pi_exited) {
+        pi_drop(childpid);
+    }
+	lock_release(pidlock);
+
+    return 0;
 }
 
 /*
@@ -329,21 +358,45 @@ pid_detach(pid_t childpid)
  *  - wakes any thread waiting for the curthread to exit. 
  *  - frees the PID and exit status if the curthread has been detached. 
  *  - must be called only if the thread has had a pid assigned.
+ Modify thread_exit so that it calls pid_exit to store the new exit status 
+ argument in its pid struct, and to synchronize correctly with the joining 
+ thread (if any). The dodetach argument to pid_exit should be true if the 
+ exiting thread was running a user-level process and false otherwise.
  */
 void
 pid_exit(int status, bool dodetach)
 {
 	struct pidinfo *my_pi;
 	
-	(void)dodetach; /* for compiler - delete when dodetach has real use */
-
 	// Implement me. Existing code simply sets the exit status.
 	lock_acquire(pidlock);
 
 	my_pi = pi_get(curthread->t_pid);
 	KASSERT(my_pi != NULL);
-	my_pi->pi_exitstatus = status;
 
+	my_pi->pi_exited = true;
+	my_pi->pi_exitstatus = status;
+	
+	//??????????????????children disown???...
+	//???if dodetach is true, children are also detached.
+	if (dodetach) {
+		int i;
+		for (i=0; i<PROCS_MAX; i++) {
+			if (pidinfo[i]->pi_ppid == my_pi->pi_pid) {
+				pid_detach(pidinfo[i]->pi_pid);
+			}
+		}		
+	}
+
+	//???wakes any thread waiting for the curthread to exit. 
+	cv_broadcast(my_pi->pi_cv, pidlock);
+
+	if (my_pi->pi_ppid == INVALID_PID) {
+		pi_drop(my_pi->pi_pid);
+	}
+ 
+ 	//????????The dodetach argument to pid_exit should be true if the 
+	//exiting thread was running a user-level process and false otherwise.
 	lock_release(pidlock);
 }
 
@@ -356,13 +409,58 @@ pid_exit(int status, bool dodetach)
 int
 pid_join(pid_t targetpid, int *status, int flags)
 {
-	(void)targetpid;
-	(void)status;
 	(void)flags;
 	
-	// Implement me.
-	KASSERT(false);
-	return EUNIMP;
+	struct pidinfo *pinfo;
+	
+	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
+		return -EINVAL;
+	}
+
+	if (targetpid == curthread->t_pid) {
+		return -EDEADLK;
+	}
+	
+	lock_acquire(pidlock);
+
+	pinfo = pi_get(targetpid);
+
+	//???If status is not NULL, the exit status of thread targetpid 
+	//is stored in the location pointed to by status.
+	//or other ErrorMsg
+	//KASSERT(pinfo != NULL);
+	if (pinfo == NULL) {
+		lock_release(pidlock);	
+		return -ESRCH;
+	}
+
+	//thread childpid is already in the detached state
+	if (pinfo->pi_ppid == INVALID_PID) {
+		return -EINVAL;
+	}
+
+	//??? The thread targetpid must be in the joinable state; 
+	//it must not have been detached using pid_detach.
+	if (pinfo->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);
+		return -EINVAL;
+	}
+
+	//??while or if
+	if (pinfo->pi_exited == false) {
+		//???check this way??
+		//KASSERT(flags != WNOHANG);
+		cv_wait(pinfo->pi_cv, pidlock);
+	}
+
+	if (status != NULL)
+		*status = pinfo->pi_exitstatus;
+
+	pinfo->pi_ppid = INVALID_PID;
+	//pi_drop(targetpid);
+	lock_release(pidlock);
+
+	return targetpid;
 }
 
 /*
