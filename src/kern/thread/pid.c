@@ -323,7 +323,7 @@ pid_detach(pid_t childpid)
 	}
 
 	//?????thread childpid is already in the detached state
-	if (pinfo->ppid == INVALID_PID) {
+	if (pinfo->pi_ppid == INVALID_PID) {
 		return EINVAL;
 	}
 	
@@ -337,7 +337,7 @@ pid_detach(pid_t childpid)
 
 	lock_acquire(pidlock);
 
-	pinfo->ppid == INVALID_PID;
+	pinfo->pi_ppid == INVALID_PID;
 	if (pinfo->pi_exited) {
         pi_drop(childpid);
     }
@@ -373,7 +373,7 @@ pid_exit(int status, bool dodetach)
 	my_pi = pi_get(curthread->t_pid);
 	KASSERT(my_pi != NULL);
 
-	my_pi->exited = TRUE;
+	my_pi->pi_exited = TRUE;
 	my_pi->pi_exitstatus = status;
 	
 	//??????????????????children disown???...
@@ -425,11 +425,11 @@ pid_join(pid_t targetpid, int *status, int flags)
 	}
 
 	//thread childpid is already in the detached state
-	if (pinfo->ppid == INVALID_PID) {
+	if (pinfo->pi_ppid == INVALID_PID) {
 		return -EINVAL;
 	}
 	
-	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID))) {
+	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
 		return -EINVAL;
 	}
 
@@ -439,7 +439,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 
 	//??? The thread targetpid must be in the joinable state; 
 	//it must not have been detached using pid_detach.
-	if (pinfo->ppid == INVALID_PID) {
+	if (pinfo->pi_ppid == INVALID_PID) {
 		return EINVAL;
 	}
 
@@ -449,11 +449,11 @@ pid_join(pid_t targetpid, int *status, int flags)
 	if (pinfo->pi_exited == false) {
 		//???check this way??
 		KASSERT(flags != WNOHANG);
-		cv_waite(pinfo->pi_cv, pidlock);
+		cv_wait(pinfo->pi_cv, pidlock);
 	}
 
 	*status = pinfo->pi_exitstatus;
-	pinfo->ppid = INVALID_PID;
+	pinfo->pi_ppid = INVALID_PID;
 	pi_drop(targetpid);
 
 	lock_release(pidlock);
