@@ -415,11 +415,6 @@ pid_join(pid_t targetpid, int *status, int flags)
 	
 	struct pidinfo *pinfo;
 	
-	//thread childpid is already in the detached state
-	if (pinfo->pi_ppid == INVALID_PID) {
-		return -EINVAL;
-	}
-	
 	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
 		return -EINVAL;
 	}
@@ -441,6 +436,11 @@ pid_join(pid_t targetpid, int *status, int flags)
 		return -ESRCH;
 	}
 
+	//thread childpid is already in the detached state
+	if (pinfo->pi_ppid == INVALID_PID) {
+		return -EINVAL;
+	}
+
 	//??? The thread targetpid must be in the joinable state; 
 	//it must not have been detached using pid_detach.
 	if (pinfo->pi_ppid == INVALID_PID) {
@@ -457,7 +457,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 
 	if (status != NULL)
 		*status = pinfo->pi_exitstatus;
-	
+
 	pinfo->pi_ppid = INVALID_PID;
 	//pi_drop(targetpid);
 	lock_release(pidlock);
