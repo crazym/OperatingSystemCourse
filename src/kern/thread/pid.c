@@ -331,13 +331,13 @@ pid_detach(pid_t childpid)
 		return EINVAL;
 	}
 
-	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID))) {
+	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
 		return EINVAL;
 	}
 
 	lock_acquire(pidlock);
 
-	pinfo->pi_ppid == INVALID_PID;
+	pinfo->pi_ppid = INVALID_PID;
 	if (pinfo->pi_exited) {
         pi_drop(childpid);
     }
@@ -373,7 +373,7 @@ pid_exit(int status, bool dodetach)
 	my_pi = pi_get(curthread->t_pid);
 	KASSERT(my_pi != NULL);
 
-	my_pi->pi_exited = TRUE;
+	my_pi->pi_exited = true;
 	my_pi->pi_exitstatus = status;
 	
 	//??????????????????children disown???...
@@ -388,7 +388,7 @@ pid_exit(int status, bool dodetach)
 	}
 
 	//???wakes any thread waiting for the curthread to exit. 
-	cv_broadcast(pi->pi_cv, pidlock);
+	cv_broadcast(my_pi->pi_cv, pidlock);
 
 	if (my_pi->pi_ppid == INVALID_PID) {
 		pi_drop(my_pi->pi_pid);
@@ -417,7 +417,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 	//???If status is not NULL, the exit status of thread targetpid 
 	//is stored in the location pointed to by status.
 	//or other ErrorMsg
-	KASSERT(*status != NULL);
+	KASSERT(pinfo != NULL);
 
 	pinfo = pi_get(targetpid);
 	if (pinfo == NULL) {
