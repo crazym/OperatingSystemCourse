@@ -11,6 +11,7 @@
 #include <pid.h>
 #include <machine/trapframe.h>
 #include <syscall.h>
+#include <kern/wait.h>
 
 /*
  * sys_fork
@@ -66,7 +67,7 @@ sys_getpid(pid_t *retval) {
  int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  	
  	// Check if invalid option
- 	if (options != 0)
+ 	if (options != 0 && options != WNOHANG)
  		return EINVAL;
 
  	// Check for invalid pointer
