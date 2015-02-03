@@ -455,9 +455,11 @@ pid_join(pid_t targetpid, int *status, int flags)
 		cv_wait(pinfo->pi_cv, pidlock);
 	}
 
-	*status = pinfo->pi_exitstatus;
+	if (status != NULL)
+		*status = pinfo->pi_exitstatus;
+	
 	pinfo->pi_ppid = INVALID_PID;
-	pi_drop(targetpid);
+	//pi_drop(targetpid);
 	lock_release(pidlock);
 
 	return targetpid;
