@@ -382,7 +382,8 @@ pid_exit(int status, bool dodetach)
 	if (dodetach) {
 		int i;
 		for (i=0; i<PROCS_MAX; i++) {
-			if (pidinfo[i]->pi_ppid == my_pi->pi_pid) {
+			//!!!pidinfo[i]
+			if (pidinfo[i] && pidinfo[i]->pi_ppid == my_pi->pi_pid) {
 				pid_detach(pidinfo[i]->pi_pid);
 			}
 		}		
@@ -409,7 +410,6 @@ pid_exit(int status, bool dodetach)
 int
 pid_join(pid_t targetpid, int *status, int flags)
 {
-	(void)flags;
 	
 	struct pidinfo *pinfo;
 	
@@ -417,6 +417,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 		return -EINVAL;
 	}
 
+	// checking deadlock: self join
 	if (targetpid == curthread->t_pid) {
 		return -EDEADLK;
 	}
@@ -436,6 +437,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 
 	//thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);	
 		return -EINVAL;
 	}
 
@@ -448,16 +450,24 @@ pid_join(pid_t targetpid, int *status, int flags)
 
 	//??while or if
 	if (pinfo->pi_exited == false) {
-		//???check this way??
-		//KASSERT(flags != WNOHANG);
+		if (flags == WNOHANG) {
+			lock_release(pidlock);
+       		return 0;
+		}
 		cv_wait(pinfo->pi_cv, pidlock);
+		KASSERT(pinfo->pi_exited == true); // double check target exit
 	}
 
-	if (status != NULL)
+	if (status != NULL) {
 		*status = pinfo->pi_exitstatus;
+	}
 
+	//When a joinable thread terminates, its pidinfo struct (containing 
+	//the PID and exit status, along with other fields) must be retained 
+	//until another thread performs pid_join (or pid_detach) on it.
 	pinfo->pi_ppid = INVALID_PID;
-	//pi_drop(targetpid);
+	// ???????
+	pi_drop(targetpid);
 	lock_release(pidlock);
 
 	return targetpid;
