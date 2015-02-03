@@ -408,9 +408,7 @@ pid_exit(int status, bool dodetach)
  */
 int
 pid_join(pid_t targetpid, int *status, int flags)
-{
-	(void)flags;
-	
+{	
 	struct pidinfo *pinfo;
 	
 	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
@@ -449,15 +447,15 @@ pid_join(pid_t targetpid, int *status, int flags)
 	//??while or if
 	if (pinfo->pi_exited == false) {
 		//???check this way??
-		//KASSERT(flags != WNOHANG);
-		cv_wait(pinfo->pi_cv, pidlock);
+		if (flags != WNOHANG)
+			cv_wait(pinfo->pi_cv, pidlock);
 	}
 
 	if (status != NULL)
 		*status = pinfo->pi_exitstatus;
 
 	pinfo->pi_ppid = INVALID_PID;
-	//pi_drop(targetpid);
+	pi_drop(targetpid);
 	lock_release(pidlock);
 
 	return targetpid;
