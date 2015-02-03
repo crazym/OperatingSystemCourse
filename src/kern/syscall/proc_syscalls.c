@@ -51,10 +51,11 @@ sys_fork(struct trapframe *tf, pid_t *retval)
  * sys_getpid
  * Placeholder to remind you to implement this.
  */
-pid_t 
-sys_getpid(void) {
+int 
+sys_getpid(pid_t *retval) {
 	KASSERT(curthread != NULL);
-	return curthread->t_pid;
+	*retval = curthread->t_pid;
+	return 0;
 }
 
 
@@ -62,8 +63,34 @@ sys_getpid(void) {
  * sys_waitpid
  * Placeholder comment to remind you to implement this.
  */
- pid_t sys_waitpid(pid_t pid, int *status, int options) {
+ int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
+ 	
+ 	// Check if invalid option
+ 	if (options != 0)
+ 		return EINVAL;
 
+ 	// Check for invalid pointer
+ 	if (status == NULL)
+ 		return EFAULT;
+
+ 	pid_t target_parent = pid_parent(pid);
+
+ 	// Check if pid_exist, not needed since pid_join does it
+ 	if (target_parent < 0)
+ 		return ESRCH;
+
+ 	// Check if thread is child
+ 	if (curthread->t_pid != target_parent)
+ 		return ECHILD;
+
+ 	pid_t child = pid_join(pid, status, options);
+ 	
+ 	// If join was unsuccessful
+ 	if (child < 0)
+ 		return child;
+ 	else
+ 		*retval = child;
+ 		return 0;
  }
 
 
@@ -71,8 +98,10 @@ sys_getpid(void) {
  * sys_kill
  * Placeholder comment to remind you to implement this.
  */
- int kill(pid_t pid, int sig) {
+
+ /*
+ int kill(pid_t pid, int sig, int *retval) {
  	return 0;
- }
+ }*/
 
 

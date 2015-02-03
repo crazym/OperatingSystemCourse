@@ -364,3 +364,23 @@ pid_join(pid_t targetpid, int *status, int flags)
 	KASSERT(false);
 	return EUNIMP;
 }
+
+/*
+ * pid_parent - returns the parent id of process with targetpid.
+ * If targetpid does not exist, then -1 is returned.
+ */
+pid_t
+pid_parent(pid_t targetpid) {
+	
+	struct pidinfo *pi;
+
+	lock_acquire(pidlock);
+	pi = pi_get(targetpid);
+	lock_release(pidlock);
+
+	// If no pid found
+	if (pi == NULL)
+		return -1;
+
+	return pi->pi_ppid;
+}

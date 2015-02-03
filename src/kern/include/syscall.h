@@ -75,8 +75,8 @@ void dumb_consoleIO_bootstrap(void);
 /*
  * ASST1 - Prototypes for ASST1 syscalls
  */
-pid_t sys_getpid(void);
-pid_t sys_waitpid(pid_t pid, int *status, int options);
-int kill(pid_t pid, int sig);
+int sys_getpid(pid_t *retval);
+int sys_waitpid(pid_t pid, int *status, int options, int *retval);
+int kill(pid_t pid, int sig, int *retval);
 
 #endif /* _SYSCALL_H_ */
