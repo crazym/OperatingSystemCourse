@@ -317,37 +317,35 @@ pid_detach(pid_t childpid)
 {
 	struct pidinfo *pinfo;
 	
+	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
+		return EINVAL;
+	}
+
+
 	lock_acquire(pidlock);
 
 	pinfo = pi_get(childpid);
 
-	lock_release(pidlock);
-
-	if (pinfo == NULL) {		
+	if (pinfo == NULL) {	
+		lock_release(pidlock);
 		return ESRCH;
 	}
 
 	//?????thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);
 		return EINVAL;
 	}
 	
 	if (pinfo->pi_ppid != curthread->t_pid) {
-		return EINVAL;
-	}
-
-	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
+		lock_release(pidlock);
 		return EINVAL;
 	}	
-
-	lock_acquire(pidlock);
-	
 	pinfo->pi_ppid = INVALID_PID;
 	if (pinfo->pi_exited) {
         pi_drop(childpid);
     }
-
-    lock_acquire(pidlock);
+	lock_release(pidlock);
 
     return 0;
 }
