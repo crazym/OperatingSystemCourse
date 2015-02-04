@@ -77,4 +77,13 @@ int pid_join(pid_t targetpid, int *status, int flags);
  */
 pid_t pid_parent(pid_t targetpid);
 
+/*
+*/
+int get_flag(pid_t targetpid, int *signal);
+
+/*
+*/
+int set_flag(pid_t targetpid, int signal);
+
 #endif /* _PID_H_ */
+
