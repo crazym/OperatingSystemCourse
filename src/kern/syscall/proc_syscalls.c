@@ -81,7 +81,6 @@ sys_getpid(pid_t *retval) {
  		return ESRCH;
 
  	// Check if thread is child
- 	KASSERT(curthread->t_pid == target_parent);
  	if (curthread->t_pid != target_parent)
  		return ECHILD;
 
@@ -102,7 +101,9 @@ sys_getpid(pid_t *retval) {
  */
 
  /*
- int kill(pid_t pid, int sig, int *retval) {
+ int sys_kill(pid_t pid, int sig, int *retval) {
+
+
  	return 0;
  }*/
 
