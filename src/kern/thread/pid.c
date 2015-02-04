@@ -57,6 +57,7 @@ struct pidinfo {
 	int pi_exitstatus;		// status (only valid if exited)
 	struct cv *pi_cv;		// use to wait for thread exit
 	//volatile bool pi_detached;	// true if thread has been detached
+	int flag;
 };
 
 
@@ -101,6 +102,7 @@ pidinfo_create(pid_t pid, pid_t ppid)
 	pi->pi_ppid = ppid;
 	pi->pi_exited = false;
 	pi->pi_exitstatus = 0xbaad;  /* Recognizably invalid value */
+	pi->flag = -1;
 
 	return pi;
 }
@@ -496,4 +498,52 @@ pid_parent(pid_t targetpid) {
 	ppid = pi->pi_ppid;
 	lock_release(pidlock);
 	return ppid;
+}
+
+
+int 
+set_flag(pid_t targetpid, int signal) {
+
+	struct pidinfo *pi;
+
+	lock_acquire(pidlock);
+	pi = pi_get(targetpid);	
+
+	// If no pid found
+	if (pi == NULL) {
+		lock_release(pidlock);	
+		return -ESRCH;
+	}
+
+	pi->flag = signal;
+	lock_release(pidlock);
+	return 0;
+}
+
+int 
+get_flag(pid_t targetpid, int *signal) {
+
+	struct pidinfo *pi;
+	int flag;
+
+	lock_acquire(pidlock);
+	pi = pi_get(targetpid);	
+
+	// If no pid found
+	if (pi == NULL) {
+		lock_release(pidlock);	
+		return -ESRCH;
+	}
+
+	flag = pi->flag;
+	// if flag has not been set
+	if (flag == -1) {
+		*signal = flag;
+		return 1;
+	}
+
+	*signal = flag;
+	lock_release(pidlock);
+	return 0;
+	
 }

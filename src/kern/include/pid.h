@@ -78,11 +78,15 @@ int pid_join(pid_t targetpid, int *status, int flags);
 pid_t pid_parent(pid_t targetpid);
 
 /*
-*/
+ * get the flag(signal) set for the process with targetpid, 
+ * the flag info is returned in pointer signal
+ * if no signal is set, flag is -1
+ */
 int get_flag(pid_t targetpid, int *signal);
 
 /*
-*/
+ * set signal(flag) to the process with target pid.
+ */
 int set_flag(pid_t targetpid, int signal);
 
 #endif /* _PID_H_ */
