@@ -124,7 +124,9 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 	case SIGINT:
 		return pid_setflag(pid, SIGINT);	
  	case SIGKILL:
- 		return pid_setflag(pid, SIGKILL);	
+ 		return pid_setflag(pid, SIGKILL);
+ 	case SIGTERM:
+ 		return pid_setflag(pid, SIGTERM);	
  	case SIGSTOP:
  		return pid_setflag(pid, SIGSTOP);		
  	case SIGCONT:

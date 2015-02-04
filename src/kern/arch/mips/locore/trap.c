@@ -356,22 +356,22 @@ mips_trap(struct trapframe *tf)
 		switch(sig) {
 			case SIGHUP:
 			// Terminate
-				thread_exit(128+sig);
+				thread_exit(sig);
 				break;
 
 			case SIGINT:
 			// Terminate
-				thread_exit(128+sig);
+				thread_exit(sig);
 				break;
 
 			case SIGKILL:
 			// Terminate
-				thread_exit(128+sig);
+				thread_exit(sig);
 				break;
 
 			case SIGTERM:
 			// Terminate
-				thread_exit(128+sig);
+				thread_exit(sig);
 				break;
 
 			case SIGSTOP:
