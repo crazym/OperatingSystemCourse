@@ -80,14 +80,14 @@ pid_t pid_parent(pid_t targetpid);
 /*
  * get the flag(signal) set for the process with targetpid, 
  * the flag info is returned in pointer signal
- * if no signal is set, flag is -1
+ * if no signal is set, flag is 0
  */
-int get_flag(pid_t targetpid, int *signal);
+int pid_getflag(pid_t targetpid, int *signal);
 
 /*
  * set signal(flag) to the process with target pid.
  */
-int set_flag(pid_t targetpid, int signal);
+int pid_setflag(pid_t targetpid, int signal);
 
 #endif /* _PID_H_ */
 

@@ -129,6 +129,8 @@ mips_trap(struct trapframe *tf)
 	uint32_t code;
 	bool isutlb, iskern;
 	int spl;
+	int sig = 0;
+	int result;
 
 	/* The trap frame is supposed to be 37 registers long. */
 	KASSERT(sizeof(struct trapframe)==(37*4));
@@ -345,6 +347,39 @@ mips_trap(struct trapframe *tf)
 	 * to find out now.
 	 */
 	KASSERT(SAME_STACK(cpustacks[curcpu->c_number]-1, (vaddr_t)tf));
+
+	// Checking that we came from User-space
+	if (!iskern) {
+		KASSERT(curthread != NULL);
+		result = 0;
+		//result = pid_getflag(curthread->t_pid, &sig);
+		switch(sig) {
+			case SIGHUP:
+			// Terminate
+
+				break;
+
+			case SIGINT:
+			// Terminate
+				break;
+
+			case SIGKILL:
+			// Terminate
+				break;
+
+			case SIGTERM:
+			// Terminate
+				break;
+
+			case SIGSTOP:
+			// Stop
+				break;
+
+			case SIGCONT:
+			// Continue
+				break;
+		}
+	}
 
 }
 

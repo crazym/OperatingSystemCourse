@@ -72,7 +72,7 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 		return EINVAL;
 
 	// Check for invalid pointer
-	if (status == NULL || (void *)status < (void *)MIPS_KUSEG || (void *)status >= (void *)MIPS_KSEG0)
+	if ((status == NULL) || (status < (int *)MIPS_KUSEG) || (status >= (int *)MIPS_KSEG0))
 		return EFAULT;
 
 	if (pid <= 0)

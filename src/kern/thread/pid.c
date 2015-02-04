@@ -102,7 +102,7 @@ pidinfo_create(pid_t pid, pid_t ppid)
 	pi->pi_ppid = ppid;
 	pi->pi_exited = false;
 	pi->pi_exitstatus = 0xbaad;  /* Recognizably invalid value */
-	pi->flag = -1;
+	pi->flag = 0;
 
 	return pi;
 }
@@ -504,7 +504,7 @@ pid_parent(pid_t targetpid) {
 
 
 int 
-set_flag(pid_t targetpid, int signal) {
+pid_setflag(pid_t targetpid, int signal) {
 
 	struct pidinfo *pi;
 
@@ -514,7 +514,7 @@ set_flag(pid_t targetpid, int signal) {
 	// If no pid found
 	if (pi == NULL) {
 		lock_release(pidlock);	
-		return -ESRCH;
+		return ESRCH;
 	}
 
 	pi->flag = signal;
@@ -523,7 +523,7 @@ set_flag(pid_t targetpid, int signal) {
 }
 
 int 
-get_flag(pid_t targetpid, int *signal) {
+pid_getflag(pid_t targetpid, int *signal) {
 
 	struct pidinfo *pi;
 	int flag;
@@ -534,15 +534,15 @@ get_flag(pid_t targetpid, int *signal) {
 	// If no pid found
 	if (pi == NULL) {
 		lock_release(pidlock);	
-		return -ESRCH;
+		return ESRCH;
 	}
 
 	flag = pi->flag;
-	// if flag has not been set
-	if (flag == -1) {
-		*signal = flag;
-		return 1;
-	}
+	// // if flag has not been set
+	// if (flag == -1) {
+	// 	*signal = flag;
+	// 	return 1;
+	// }
 
 	*signal = flag;
 	lock_release(pidlock);
