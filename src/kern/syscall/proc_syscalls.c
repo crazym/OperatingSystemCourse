@@ -13,6 +13,7 @@
 #include <syscall.h>
 #include <kern/wait.h>
 #include <vm.h>
+#include <signal.h>
 
 /*
  * sys_fork
@@ -65,7 +66,8 @@ sys_getpid(pid_t *retval) {
  * sys_waitpid
  * Placeholder comment to remind you to implement this.
  */
-int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
+int 
+sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 
 	// Check if invalid option
 	if (options != 0 && options != WNOHANG)
@@ -105,11 +107,35 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  * Placeholder comment to remind you to implement this.
  */
 
- /*
- int sys_kill(pid_t pid, int sig, int *retval) {
 
+ int 
+ sys_kill(pid_t pid, int sig) {
 
- 	return 0;
- }*/
+ 	//fail if sig is not between 0 and 31
+ 	if ((sig < 0) || (sig > 31)) {
+ 		return EINVAL;
+ 	}
 
+	//return 0 on success
+ 	//corresponding error code otherwise
+ 	switch(sig){
+ 	case SIGHUP:
+		return pid_setflag(pid, SIGHUP); 	
+	case SIGINT:
+		return pid_setflag(pid, SIGINT);	
+ 	case SIGKILL:
+ 		return pid_setflag(pid, SIGKILL);	
+ 	case SIGSTOP:
+ 		return pid_setflag(pid, SIGSTOP);		
+ 	case SIGCONT:
+ 		return pid_setflag(pid, SIGCONT);		
+ 	case SIGWINCH:
+ 		return pid_setflag(pid, SIGWINCH);		
+ 	case SIGINFO:
+ 		return pid_setflag(pid, SIGINFO);		
+ 	default: 
+		//pid_setflag(pid, 0);
+		return EUNIMP;				
+ 	}
+ }
 
