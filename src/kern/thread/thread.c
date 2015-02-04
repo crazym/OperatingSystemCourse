@@ -606,7 +606,7 @@ thread_switch(threadstate_t newstate, struct wchan *wc)
 
 	cur = curthread;
 
-	/*
+	/*pidinfo
 	 * If we're idle, return without doing anything. This happens
 	 * when the timer interrupt interrupts the idle loop.
 	 */
@@ -833,10 +833,14 @@ void
 thread_exit(int exitcode)
 {
 	struct thread *cur;
-	//???????not sure for using cur->t_addrspace???
-    pid_exit(exitcode, false);  // suppress warning until code gets written
+	//???????not sure for using cur->t_addrspace??? (cur->t_addrspace != NULL)
+
+		
+
+    // suppress warning until code gets written
 
 	cur = curthread;
+	pid_exit(exitcode, cur->t_addrspace); 
 
 	/* VFS fields */
 	if (cur->t_cwd) {

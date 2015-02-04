@@ -387,8 +387,10 @@ pid_exit(int status, bool dodetach)
 			//!!!pidinfo[i]
 			if (pidinfo[i] && pidinfo[i]->pi_ppid == my_pi->pi_pid) {
 				pidinfo[i]->pi_ppid = INVALID_PID;
-				if (pidinfo[i]->pi_exited)
+
+				if (pidinfo[i]->pi_exited){
 					pi_drop(pidinfo[i]->pi_pid);
+				}
 			}
 		}		
 	}
