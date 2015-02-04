@@ -39,6 +39,7 @@
 #include <vm.h>
 #include <mainbus.h>
 #include <syscall.h>
+#include <pid.h>
 
 
 /* in exception.S */
@@ -344,6 +345,7 @@ mips_trap(struct trapframe *tf)
 	 * to find out now.
 	 */
 	KASSERT(SAME_STACK(cpustacks[curcpu->c_number]-1, (vaddr_t)tf));
+
 }
 
 /*
