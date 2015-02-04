@@ -349,26 +349,29 @@ mips_trap(struct trapframe *tf)
 	KASSERT(SAME_STACK(cpustacks[curcpu->c_number]-1, (vaddr_t)tf));
 
 	// Checking that we came from User-space
-	if (!iskern) {
+	if (!iskern && !curthread->t_in_interrupt) {
 		KASSERT(curthread != NULL);
-		result = 0;
-		//result = pid_getflag(curthread->t_pid, &sig);
+		//result = 0;
+		result = pid_getflag(curthread->t_pid, &sig);
 		switch(sig) {
 			case SIGHUP:
 			// Terminate
-
+				thread_exit(128+sig);
 				break;
 
 			case SIGINT:
 			// Terminate
+				thread_exit(128+sig);
 				break;
 
 			case SIGKILL:
 			// Terminate
+				thread_exit(128+sig);
 				break;
 
 			case SIGTERM:
 			// Terminate
+				thread_exit(128+sig);
 				break;
 
 			case SIGSTOP:
