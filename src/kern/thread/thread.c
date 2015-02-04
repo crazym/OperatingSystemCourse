@@ -501,7 +501,7 @@ thread_fork(const char *name,
 	    void *data1, unsigned long data2,
 	    pid_t *ret)
 {
-	struct thread *newthread;pidinfo
+	struct thread *newthread;
 	int result;
 
 	newthread = thread_create(name);
@@ -833,10 +833,14 @@ void
 thread_exit(int exitcode)
 {
 	struct thread *cur;
-	//???????not sure for using cur->t_addrspace???
-    pid_exit(exitcode, cur->t_addrspace);  // suppress warning until code gets written
+	//???????not sure for using cur->t_addrspace??? (cur->t_addrspace != NULL)
+
+		
+
+    // suppress warning until code gets written
 
 	cur = curthread;
+	pid_exit(exitcode, cur->t_addrspace); 
 
 	/* VFS fields */
 	if (cur->t_cwd) {
