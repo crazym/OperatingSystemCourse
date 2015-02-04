@@ -199,9 +199,14 @@ common_prog(int nargs, char **args)
 	}
 
 	KASSERT(child > 0);
-	// Wait for the child process to finish before continuing
-	result = pid_join(child, NULL, 0);
+	if (*(args_copy[nargs-1]) == '&'){
+		thread_detach(child);
+	}else{
+		// Wait for the child process to finish before continuing
+		result = pid_join(child, NULL, 0);
 
+	}
+	
 	return 0;
 }
 

@@ -501,7 +501,7 @@ thread_fork(const char *name,
 	    void *data1, unsigned long data2,
 	    pid_t *ret)
 {
-	struct thread *newthread;
+	struct thread *newthread;pidinfo
 	int result;
 
 	newthread = thread_create(name);
@@ -606,7 +606,7 @@ thread_switch(threadstate_t newstate, struct wchan *wc)
 
 	cur = curthread;
 
-	/*
+	/*pidinfo
 	 * If we're idle, return without doing anything. This happens
 	 * when the timer interrupt interrupts the idle loop.
 	 */
@@ -834,7 +834,7 @@ thread_exit(int exitcode)
 {
 	struct thread *cur;
 	//???????not sure for using cur->t_addrspace???
-    pid_exit(exitcode, false);  // suppress warning until code gets written
+    pid_exit(exitcode, cur->t_addrspace);  // suppress warning until code gets written
 
 	cur = curthread;
 
