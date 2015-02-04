@@ -12,6 +12,7 @@
 #include <machine/trapframe.h>
 #include <syscall.h>
 #include <kern/wait.h>
+#include <vm.h>
 
 /*
  * sys_fork
@@ -71,16 +72,16 @@ int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 		return EINVAL;
 
 	// Check for invalid pointer
-	if (status == NULL)
+	if (status == NULL || (void *)status < (void *)MIPS_KUSEG || (void *)status >= (void *)MIPS_KSEG0)
 		return EFAULT;
 
-	if (pid < 0)
+	if (pid <= 0)
 		return ESRCH;
 
 	pid_t target_parent = pid_parent(pid);
 
 	// Check if pid_exist, not needed since pid_join does it
-	if (target_parent < 0)
+	if (target_parent <= 0)
 		return ESRCH;
 
 	// Check if thread is child
