@@ -64,36 +64,40 @@ sys_getpid(pid_t *retval) {
  * sys_waitpid
  * Placeholder comment to remind you to implement this.
  */
- int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
- 	
- 	// Check if invalid option
- 	if (options != 0 && options != WNOHANG)
- 		return EINVAL;
+int sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 
- 	// Check for invalid pointer
- 	if (status == NULL)
- 		return EFAULT;
+	// Check if invalid option
+	if (options != 0 && options != WNOHANG)
+		return EINVAL;
 
- 	pid_t target_parent = pid_parent(pid);
+	// Check for invalid pointer
+	if (status == NULL)
+		return EFAULT;
 
- 	// Check if pid_exist, not needed since pid_join does it
- 	if (target_parent == -1)
- 		return ESRCH;
+	if (pid < 0)
+		return ESRCH;
 
- 	// Check if thread is child
- 	KASSERT(curthread->t_pid == target_parent);
- 	if (curthread->t_pid != target_parent)
- 		return ECHILD;
+	pid_t target_parent = pid_parent(pid);
 
- 	pid_t child = pid_join(pid, status, options);
- 	
- 	// If join was unsuccessful
- 	if (child < 0)
- 		return -child;
- 	else
- 		*retval = child;
- 		return 0;
- }
+	// Check if pid_exist, not needed since pid_join does it
+	if (target_parent < 0)
+		return ESRCH;
+
+	// Check if thread is child
+	KASSERT(curthread->t_pid == target_parent);
+	if (curthread->t_pid != target_parent)
+		return ECHILD;
+
+	pid_t child = pid_join(pid, status, options);
+	
+	// If join was unsuccessful
+	if (child < 0)
+		return -child;
+	else {
+		*retval = child;
+		return 0;
+	}
+}
 
 
 /*
