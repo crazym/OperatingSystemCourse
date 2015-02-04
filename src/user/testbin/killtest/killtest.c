@@ -117,7 +117,7 @@ testsig_ignore(int signum, const char *signame)
 	}
 
 	/* check repeatedly to make sure signaled child is still there */
-	for (i=0; i < 100; i++) {
+	for (i=0; i < 50; i++) {
 		ret = waitpid(pid0, &status, WNOHANG);
 		if (ret != 0) {
 			warn("waitpid with WNOHANG failed (%s)",signame);
@@ -125,7 +125,7 @@ testsig_ignore(int signum, const char *signame)
 			ok++;
 		}
 	}
-	if (ok == 100) {
+	if (ok == 50) {
 		warnx("Success: signal %s appears to be ignored.",signame);
 	}
 

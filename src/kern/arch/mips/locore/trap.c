@@ -356,21 +356,25 @@ mips_trap(struct trapframe *tf)
 		switch(sig) {
 			case SIGHUP:
 			// Terminate
+				//pid_detach(curthread->t_pid);
 				thread_exit(sig);
 				break;
 
 			case SIGINT:
 			// Terminate
+				//pid_detach(curthread->t_pid);
 				thread_exit(sig);
 				break;
 
 			case SIGKILL:
 			// Terminate
+				//pid_detach(curthread->t_pid);
 				thread_exit(sig);
 				break;
 
 			case SIGTERM:
 			// Terminate
+				//pid_detach(curthread->t_pid);
 				thread_exit(sig);
 				break;
 
@@ -380,6 +384,9 @@ mips_trap(struct trapframe *tf)
 
 			case SIGCONT:
 			// Continue
+				break;
+
+			default:
 				break;
 		}
 	}
