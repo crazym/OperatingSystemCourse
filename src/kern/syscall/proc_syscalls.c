@@ -21,7 +21,6 @@
  * create a new process, which begins executing in md_forkentry().
  */
 
-
 int
 sys_fork(struct trapframe *tf, pid_t *retval)
 {
@@ -74,7 +73,17 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 		return EINVAL;
 
 	// Check for invalid pointer
-	if ((status == NULL) || (status < (int *)MIPS_KUSEG) || (status >= (int *)MIPS_KSEG0))
+	if (status == NULL)
+		return EFAULT;
+
+	if ((vaddr_t)status >= USERSPACETOP || ((vaddr_t)status+sizeof(int)-1) >= USERSPACETOP)
+		return EFAULT;
+
+	if ((vaddr_t)status == 0x40000000)
+		return EFAULT;
+
+	// Check alignment
+	if (((vaddr_t)status % sizeof(int)) != 0)
 		return EFAULT;
 
 	if (pid <= 0)

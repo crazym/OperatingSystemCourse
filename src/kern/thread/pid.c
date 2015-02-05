@@ -58,6 +58,7 @@ struct pidinfo {
 	struct cv *pi_cv;		// use to wait for thread exit
 	//volatile bool pi_detached;	// true if thread has been detached
 	int flag;
+	int joined;				// Number of threads joined to this one
 };
 
 
@@ -386,11 +387,11 @@ pid_exit(int status, bool dodetach)
 		for (i=0; i<PROCS_MAX; i++) {
 			//!!!pidinfo[i]
 			if (pidinfo[i] && pidinfo[i]->pi_ppid == my_pi->pi_pid) {
-				pidinfo[i]->pi_ppid = INVALID_PID;
+				// pidinfo[i]->pi_ppid = INVALID_PID;
 
-				if (pidinfo[i]->pi_exited){
-					pi_drop(pidinfo[i]->pi_pid);
-				}
+				// if (pidinfo[i]->pi_exited){
+				// 	pi_drop(pidinfo[i]->pi_pid);
+				// }
 			}
 		}		
 	}
@@ -472,7 +473,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 	//until another thread performs pid_join (or pid_detach) on it.
 	pinfo->pi_ppid = INVALID_PID;
 	// ???????
-	pi_drop(targetpid);
+	//pi_drop(targetpid);
 	lock_release(pidlock);
 
 	return targetpid;
@@ -494,7 +495,7 @@ pid_parent(pid_t targetpid) {
 	// If no pid found
 	if (pi == NULL) {
 		lock_release(pidlock);	
-		return -1;
+		return -ESRCH;
 	}
 	
 	ppid = pi->pi_ppid;
@@ -538,11 +539,6 @@ pid_getflag(pid_t targetpid, int *signal) {
 	}
 
 	flag = pi->flag;
-	// // if flag has not been set
-	// if (flag == -1) {
-	// 	*signal = flag;
-	// 	return 1;
-	// }
 
 	*signal = flag;
 	lock_release(pidlock);

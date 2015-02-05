@@ -834,13 +834,11 @@ thread_exit(int exitcode)
 {
 	struct thread *cur;
 	//???????not sure for using cur->t_addrspace??? (cur->t_addrspace != NULL)
-
-		
-
     // suppress warning until code gets written
 
 	cur = curthread;
-	pid_exit(exitcode, cur->t_addrspace); 
+	//pid_exit(exitcode, cur->t_addrspace); 
+	pid_exit(exitcode, true); 
 
 	/* VFS fields */
 	if (cur->t_cwd) {
