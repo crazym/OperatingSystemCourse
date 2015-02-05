@@ -71,23 +71,29 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 
 	// Check if invalid option
 	if (options != 0 && options != WNOHANG)
+		*retval = -1;
 		return EINVAL;
 
 	// Check for invalid pointer
-	if ((status == NULL) || (status < (int *)MIPS_KUSEG) || (status >= (int *)MIPS_KSEG0))
+	if (status == NULL) { //|| sizeof(status) != 4 || (vaddr_t)status % 4 != 0 || (vaddr_t)status  >= USERSPACETOP)
+		*retval = -1;
 		return EFAULT;
+	}
 
 	if (pid <= 0)
+		*retval = -1;
 		return ESRCH;
 
 	pid_t target_parent = pid_parent(pid);
 
 	// Check if pid_exist, not needed since pid_join does it
 	if (target_parent <= 0)
+		*retval = -1;
 		return ESRCH;
 
 	// Check if thread is child
 	if (curthread->t_pid != target_parent)
+		*retval = -1;
 		return ECHILD;
 
 	pid_t child = pid_join(pid, status, options);
