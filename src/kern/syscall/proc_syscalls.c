@@ -126,21 +126,23 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  	//corresponding error code otherwise
  	switch(sig){
  	case SIGHUP:
-		return pid_setflag(pid, SIGHUP); 	
+		return pid_setflag(pid, sig); 	
 	case SIGINT:
-		return pid_setflag(pid, SIGINT);	
+		return pid_setflag(pid, sig);	
  	case SIGKILL:
- 		return pid_setflag(pid, SIGKILL);
+ 		return pid_setflag(pid, sig);
  	case SIGTERM:
- 		return pid_setflag(pid, SIGTERM);	
+ 		return pid_setflag(pid, sig);	
  	case SIGSTOP:
- 		return pid_setflag(pid, SIGSTOP);		
+ 		return pid_setflag(pid, sig);		
  	case SIGCONT:
- 		return pid_setflag(pid, SIGCONT);		
+ 		return pid_setflag(pid, sig);		
  	case SIGWINCH:
- 		return pid_setflag(pid, SIGWINCH);		
+ 		return pid_setflag(pid, sig);		
  	case SIGINFO:
- 		return pid_setflag(pid, SIGINFO);		
+ 		return pid_setflag(pid, sig);
+ 	case 0:
+ 		return pid_setflag(pid, sig);
  	default: 
 		//pid_setflag(pid, 0);
 		return EUNIMP;				

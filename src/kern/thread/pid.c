@@ -317,8 +317,8 @@ int
 pid_detach(pid_t childpid)
 {
 	struct pidinfo *pinfo;
-	
-	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
+
+	if (childpid < 0 || childpid == INVALID_PID || childpid == BOOTUP_PID) {
 		return EINVAL;
 	}
 
@@ -415,8 +415,8 @@ int
 pid_join(pid_t targetpid, int *status, int flags)
 {
 	struct pidinfo *pinfo;
-	
-	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
+
+	if (targetpid < 0 || targetpid == INVALID_PID || targetpid == BOOTUP_PID) {
 		return -EINVAL;
 	}
 
@@ -502,6 +502,10 @@ int
 pid_setflag(pid_t targetpid, int signal) {
 
 	struct pidinfo *pi;
+
+	if (targetpid < 0 || targetpid == INVALID_PID) {
+		return ESRCH;
+	}
 
 	lock_acquire(pidlock);
 	pi = pi_get(targetpid);	
