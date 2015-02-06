@@ -837,8 +837,7 @@ thread_exit(int exitcode)
     // suppress warning until code gets written
 
 	cur = curthread;
-	//pid_exit(exitcode, cur->t_addrspace); 
-	pid_exit(exitcode, true); 
+	pid_exit(exitcode, cur->t_addrspace); 
 
 	/* VFS fields */
 	if (cur->t_cwd) {

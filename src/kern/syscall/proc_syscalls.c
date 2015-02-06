@@ -76,10 +76,7 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 	if (status == NULL)
 		return EFAULT;
 
-	if ((vaddr_t)status >= USERSPACETOP || ((vaddr_t)status+sizeof(int)-1) >= USERSPACETOP)
-		return EFAULT;
-
-	if ((vaddr_t)status == 0x40000000)
+	if ((vaddr_t)status <= 0x40000000 || ((vaddr_t)status+sizeof(int)-1) >= USERSPACETOP)
 		return EFAULT;
 
 	// Check alignment
