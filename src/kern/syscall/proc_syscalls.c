@@ -21,7 +21,6 @@
  * create a new process, which begins executing in md_forkentry().
  */
 
-
 int
 sys_fork(struct trapframe *tf, pid_t *retval)
 {
@@ -71,29 +70,30 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 
 	// Check if invalid option
 	if (options != 0 && options != WNOHANG)
-		*retval = -1;
 		return EINVAL;
 
 	// Check for invalid pointer
-	if (status == NULL) { //|| sizeof(status) != 4 || (vaddr_t)status % 4 != 0 || (vaddr_t)status  >= USERSPACETOP)
-		*retval = -1;
+	if (status == NULL)
 		return EFAULT;
-	}
+
+	if ((vaddr_t)status <= 0x40000000 || ((vaddr_t)status+sizeof(int)-1) >= USERSPACETOP)
+		return EFAULT;
+
+	// Check alignment
+	if (((vaddr_t)status % sizeof(int)) != 0)
+		return EFAULT;
 
 	if (pid <= 0)
-		*retval = -1;
 		return ESRCH;
 
 	pid_t target_parent = pid_parent(pid);
 
 	// Check if pid_exist, not needed since pid_join does it
 	if (target_parent <= 0)
-		*retval = -1;
 		return ESRCH;
 
 	// Check if thread is child
 	if (curthread->t_pid != target_parent)
-		*retval = -1;
 		return ECHILD;
 
 	pid_t child = pid_join(pid, status, options);
@@ -126,24 +126,25 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  	//corresponding error code otherwise
  	switch(sig){
  	case SIGHUP:
-		return pid_setflag(pid, SIGHUP); 	
+		return pid_setflag(pid, sig); 	
 	case SIGINT:
-		return pid_setflag(pid, SIGINT);	
+		return pid_setflag(pid, sig);	
  	case SIGKILL:
- 		return pid_setflag(pid, SIGKILL);
+ 		return pid_setflag(pid, sig);
  	case SIGTERM:
- 		return pid_setflag(pid, SIGTERM);	
+ 		return pid_setflag(pid, sig);	
  	case SIGSTOP:
- 		return pid_setflag(pid, SIGSTOP);		
+ 		return pid_setflag(pid, sig);		
  	case SIGCONT:
- 		return pid_setflag(pid, SIGCONT);		
+ 		return pid_setflag(pid, sig);		
  	case SIGWINCH:
- 		return pid_setflag(pid, SIGWINCH);		
+ 		return pid_setflag(pid, sig);		
  	case SIGINFO:
- 		return pid_setflag(pid, SIGINFO);		
+ 		return pid_setflag(pid, sig);
+ 	case 0:
+ 		return pid_setflag(pid, sig);
  	default: 
 		//pid_setflag(pid, 0);
 		return EUNIMP;				
  	}
  }
-
