@@ -561,10 +561,10 @@ pid_setflag(pid_t targetpid, int signal) {
 	 		}
 	 		pi->flag = signal;
 	 		break;
-		}
+	}
 
 	lock_release(pidlock);
-	return 0;
+	return 5;
 }
 
 int 
@@ -603,3 +603,5 @@ pid_wait(pid_t pid) {
 	lock_release(pidlock);
 
 }
+
+

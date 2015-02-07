@@ -76,11 +76,15 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
 	if (status == NULL)
 		return EFAULT;
 
-	if ((vaddr_t)status <= 0x40000000 || ((vaddr_t)status+sizeof(int)-1) >= USERSPACETOP)
+	if ((vaddr_t)status >= USERSPACETOP || ((vaddr_t)status+sizeof(int)-1) >= USERSPACETOP)
+		return EFAULT;
+
+	if ((vaddr_t)status == 0x40000000)
 		return EFAULT;
 
 	// Check alignment
 	if (((vaddr_t)status % sizeof(int)) != 0)
+
 		return EFAULT;
 
 	if (pid <= 0)
@@ -126,23 +130,21 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  	//corresponding error code otherwise
  	switch(sig){
  	case SIGHUP:
-		return pid_setflag(pid, sig); 	
+		return pid_setflag(pid, SIGHUP); 	
 	case SIGINT:
-		return pid_setflag(pid, sig);	
+		return pid_setflag(pid, SIGINT);	
  	case SIGKILL:
- 		return pid_setflag(pid, sig);
+ 		return pid_setflag(pid, SIGKILL);
  	case SIGTERM:
- 		return pid_setflag(pid, sig);	
+ 		return pid_setflag(pid, SIGTERM);	
  	case SIGSTOP:
- 		return pid_setflag(pid, sig);		
+ 		return pid_setflag(pid, SIGSTOP);		
  	case SIGCONT:
- 		return pid_setflag(pid, sig);		
+ 		return pid_setflag(pid, SIGCONT);		
  	case SIGWINCH:
- 		return pid_setflag(pid, sig);		
+ 		return pid_setflag(pid, SIGWINCH);		
  	case SIGINFO:
- 		return pid_setflag(pid, sig);
- 	case 0:
- 		return pid_setflag(pid, sig);
+ 		return pid_setflag(pid, SIGINFO);		
  	default: 
 		//pid_setflag(pid, 0);
 		return EUNIMP;				
