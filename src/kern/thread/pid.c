@@ -522,30 +522,27 @@ pid_setflag(pid_t targetpid, int signal) {
 		return ESRCH;
 	}
 
-	if (pi->flag == SIGSTOP){
+	// If exited already, then send no signals
+	if (pi->pi_exited){
+		lock_release(pidlock);
+		return 0;
+	}
+	// If stopped, then wake up if necessary
+	else if (pi->flag == SIGSTOP){
 		switch(signal){
 			case SIGHUP:
 			case SIGINT:
 			case SIGKILL:
 			case SIGTERM:
+			case SIGCONT:
 				cv_signal(pi->pi_signal, pidlock);	
 	 			pi->flag = signal;
 	 			break;
-
-		 	case SIGCONT:
-	 			if (pi->pi_exited){ // existed thread shound't be restarted
-	 				lock_release(pidlock);
-					return EINVAL;
-	 			}
-	 			// send signal to wake up stopped processs by cv_wait())
-	 			cv_signal(pi->pi_signal, pidlock);	
-	 			pi->flag = signal;
-				break;
-
 		 	default:
 		 		break;
 		}
-	}else{
+	} 
+	else {
 		pi->flag = signal;
 	}
 	
