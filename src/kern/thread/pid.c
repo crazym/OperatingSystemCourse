@@ -522,20 +522,33 @@ pid_setflag(pid_t targetpid, int signal) {
 		return ESRCH;
 	}
 
-	switch(signal){
-	 	case SIGCONT:
- 			if (pi->pi_exited){ // existed thread shound't be restarted
- 				lock_release(pidlock);
-				return EINVAL;
- 			}
- 			pi->flag = signal;
- 			// send signal to wake up stopped processs by cv_wait())
- 			cv_signal(pi->pi_signal, pidlock);	
-			break;
-	 	default:
-	 		pi->flag = signal;	// normal cases
-	}
+	if (pi->flag == SIGSTOP){
+		switch(signal){
+			case SIGHUP:
+			case SIGINT:
+			case SIGKILL:
+			case SIGTERM:
+				cv_signal(pi->pi_signal, pidlock);	
+	 			pi->flag = signal;
+	 			break;
 
+		 	case SIGCONT:
+	 			if (pi->pi_exited){ // existed thread shound't be restarted
+	 				lock_release(pidlock);
+					return EINVAL;
+	 			}
+	 			// send signal to wake up stopped processs by cv_wait())
+	 			cv_signal(pi->pi_signal, pidlock);	
+	 			pi->flag = signal;
+				break;
+
+		 	default:
+		 		break;
+		}
+	}else{
+		pi->flag = signal;
+	}
+	
 	lock_release(pidlock);
 	return 0;
 }
@@ -578,5 +591,3 @@ pid_wait(pid_t pid) {
 	lock_release(pidlock);
 
 }
-
-
