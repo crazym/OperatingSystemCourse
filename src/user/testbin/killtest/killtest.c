@@ -29,7 +29,8 @@ dofork(void)
 		warn("fork failed.");
 	}
 	if (pid == 0) {
-		while (1) {}
+		int p = getpid();
+		while (1) {printf("%d", p);}
 	}
 	return pid;
 }
@@ -74,6 +75,11 @@ testsig_die(int signum, const char *signame)
 	pid0 = dofork();
 	warnx("Child %d created.",pid0);
 
+	int c;
+	for(c=0;c<1000; c++)
+		random();
+	ret = kill(pid0, SIGSTOP);
+	warnx("Child %d stopped.",pid0);
 	ret = kill(pid0, signum);
 	if (ret == -1) {
 		warn("kill failed.");
