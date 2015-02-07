@@ -360,6 +360,7 @@ mips_trap(struct trapframe *tf)
 
 			case SIGCONT:
 			// Continue
+				pid_wait(curthread->t_pid);
 				break;
 
 			default:

@@ -42,6 +42,8 @@
 #include <current.h>
 #include <synch.h>
 #include <pid.h>
+#include <syscall.h>
+#include <signal.h>
 
 /*
  * Structure for holding PID and return data for a thread.
@@ -55,8 +57,9 @@ struct pidinfo {
 	pid_t pi_ppid;			// process id of parent thread
 	volatile bool pi_exited;	// true if thread has exited
 	int pi_exitstatus;		// status (only valid if exited)
-	struct cv *pi_cv;		// use to wait for thread exit
 	int flag;
+	struct cv *pi_cv;		// use to wait for thread exit
+	struct cv *pi_signal; //use for SIGCONT & SIGSTOP
 };
 
 
@@ -97,6 +100,12 @@ pidinfo_create(pid_t pid, pid_t ppid)
 		return NULL;
 	}
 
+	pi->pi_signal = cv_create("pidinfo signal");
+	if (pi->pi_signal == NULL) {
+		kfree(pi);
+		return NULL;
+	}
+
 	pi->pi_pid = pid;
 	pi->pi_ppid = ppid;
 	pi->pi_exited = false;
@@ -116,6 +125,7 @@ pidinfo_destroy(struct pidinfo *pi)
 	KASSERT(pi->pi_exited == true);
 	KASSERT(pi->pi_ppid == INVALID_PID);
 	cv_destroy(pi->pi_cv);
+	cv_destroy(pi->pi_signal);
 	kfree(pi);
 }
 
@@ -504,7 +514,7 @@ pid_setflag(pid_t targetpid, int signal) {
 	struct pidinfo *pi;
 
 	if (targetpid < 0 || targetpid == INVALID_PID) {
-		return ESRCH;
+		return EINVAL;
 	}
 
 	lock_acquire(pidlock);
@@ -516,7 +526,43 @@ pid_setflag(pid_t targetpid, int signal) {
 		return ESRCH;
 	}
 
-	pi->flag = signal;
+	switch(signal){
+
+		case SIGHUP:
+			pi->flag = signal;
+			break;
+		case SIGINT:
+			pi->flag = signal;
+			break;
+	 	case SIGKILL:
+	 		pi->flag = signal;
+	 		break;
+	 	case SIGTERM:
+	 		pi->flag = signal;
+	 		break;	
+	 	case SIGWINCH:
+	 		pi->flag = signal;
+	 		break;	
+	 	case SIGINFO:
+	 		pi->flag = signal;
+	 		break;
+	 	case SIGSTOP:
+	 		pi->flag = signal;
+	 		break;
+	 	case SIGCONT:
+	 		if (pi->flag == SIGSTOP){
+	 			if (pi->pi_exited){
+	 				lock_release(pidlock);
+					return EINVAL;
+	 			}
+	 			pi->flag = signal;
+	 			cv_signal(pi->pi_signal, pidlock);
+				break;
+	 		}
+	 		pi->flag = signal;
+	 		break;
+		}
+
 	lock_release(pidlock);
 	return 0;
 }
@@ -542,4 +588,18 @@ pid_getflag(pid_t targetpid, int *signal) {
 	lock_release(pidlock);
 	return 0;
 	
+}
+
+/*
+* To make thread wait until get SIGCONT signal.
+*/
+void
+pid_wait(pid_t pid) {
+
+	struct pidinfo *pi;
+	lock_acquire(pidlock);
+	pi = pi_get(pid);
+	cv_wait(pi->pi_signal, pidlock);
+	lock_release(pidlock);
+
 }
