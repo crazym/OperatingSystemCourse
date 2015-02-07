@@ -510,7 +510,7 @@ pid_setflag(pid_t targetpid, int signal) {
 	struct pidinfo *pi;
 
 	if (targetpid < 0 || targetpid == INVALID_PID) {
-		return EINVAL;
+		return ESRCH;
 	}
 
 	lock_acquire(pidlock);
