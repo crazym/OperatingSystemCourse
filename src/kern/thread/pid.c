@@ -59,7 +59,7 @@ struct pidinfo {
 	int pi_exitstatus;		// status (only valid if exited)
 	int flag;
 	struct cv *pi_cv;		// use to wait for thread exit
-	struct cv *pi_signal; //use for SIGCONT & SIGSTOP
+	struct cv *pi_signal; //use for SIGCONT & SIGSTOP kill()
 };
 
 
@@ -335,22 +335,27 @@ pid_detach(pid_t childpid)
 
 	pinfo = pi_get(childpid);
 
-	if (pinfo == NULL) {	//No thread could be found corresponding to that specified by childpid	
+	// no thread could be found corresponding to that specified by childpid	
+	if (pinfo == NULL) {	
 		lock_release(pidlock);
 		return ESRCH;
 	}
 
-	//?????thread childpid is already in the detached state
+	// thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
 		lock_release(pidlock);
 		return EINVAL;
 	}
 	
+	// the caller is not the parent of childpid
 	if (pinfo->pi_ppid != curthread->t_pid) {
 		lock_release(pidlock);
 		return EINVAL;
 	}	
-	pinfo->pi_ppid = INVALID_PID;
+
+	// the threat cannot be joined by original parent
+	pinfo->pi_ppid = INVALID_PID; 
+
 	if (pinfo->pi_exited) {
     	pi_drop(childpid);
     }
@@ -367,18 +372,12 @@ pid_detach(pid_t childpid)
  *  - wakes any thread waiting for the curthread to exit. 
  *  - frees the PID and exit status if the curthread has been detached. 
  *  - must be called only if the thread has had a pid assigned.
- Modify thread_exit so that it calls pid_exit to store the new exit status 
- argument in its pid struct, and to synchronize correctly with the joining 
- thread (if any). The dodetach argument to pid_exit should be true if the 
- exiting thread was running a user-level process and false otherwise.
  */
 void
 pid_exit(int status, bool dodetach)
 {
 	struct pidinfo *my_pi;
 
-	
-	// Implement me. Existing code simply sets the exit status.
 	lock_acquire(pidlock);
 
 	my_pi = pi_get(curthread->t_pid);
@@ -386,31 +385,29 @@ pid_exit(int status, bool dodetach)
 
 	my_pi->pi_exited = true;
 	my_pi->pi_exitstatus = status;
-	
-	//??????????????????children disown???...
-	//???if dodetach is true, children are also detached.
+
+	// if dodetach is true, children are also detached.
 	if (dodetach) {
 		int i;
-		for (i=0; i<PROCS_MAX; i++) {
+		for (i=0; i<PROCS_MAX; i++) { 	// check all the possible childern pid
 			if (pidinfo[i] && pidinfo[i]->pi_ppid == my_pi->pi_pid) {
-				pidinfo[i]->pi_ppid = INVALID_PID;
+				pidinfo[i]->pi_ppid = INVALID_PID;	// disowned children 
 
-				if (pidinfo[i]->pi_exited){
+				if (pidinfo[i]->pi_exited){   
 					pi_drop(pidinfo[i]->pi_pid);
 				}
 			}
 		}		
 	}
 
-	//???wakes any thread waiting for the curthread to exit. 
+	// wakes any thread waiting for the curthread to exit. 
 	cv_broadcast(my_pi->pi_cv, pidlock);
 
+	// frees the PID and exit status if the curthread has been detached
 	if (my_pi->pi_ppid == INVALID_PID) {
 		pi_drop(my_pi->pi_pid);
 	}
  
- 	//????????The dodetach argument to pid_exit should be true if the 
-	//exiting thread was running a user-level process and false otherwise.
 	lock_release(pidlock);
 }
 
@@ -438,29 +435,25 @@ pid_join(pid_t targetpid, int *status, int flags)
 
 	pinfo = pi_get(targetpid);
 
-	//???If status is not NULL, the exit status of thread targetpid 
-	//is stored in the location pointed to by status.
-	//or other ErrorMsg
-
 	if (pinfo == NULL) {
 		lock_release(pidlock);	
 		return -ESRCH;
 	}
 
-	//thread childpid is already in the detached state
+	// thread childpid is already in the detached state
 	if (pinfo->pi_ppid == INVALID_PID) {
 		lock_release(pidlock);	
 		return -EINVAL;
 	}
 
-	// If thread has not exited
+	// if thread has not exited
 	if (!pinfo->pi_exited) {
 		// Return immediately on WNOHANG
 		if (flags == WNOHANG) {
 			lock_release(pidlock);
        		return 0;
 		}
-		// Wait until given the signal to stop waiting
+		// wait until given the signal to stop waiting
 		cv_wait(pinfo->pi_cv, pidlock);
 		KASSERT(pinfo->pi_exited == true); // double check target exit
 		
@@ -468,13 +461,13 @@ pid_join(pid_t targetpid, int *status, int flags)
 			*status = pinfo->pi_exitstatus;
 		}
 	}
-	// If exited already
+	// if exited already
 	else {
 
 		if (status != NULL) {
 			*status = pinfo->pi_exitstatus;
 		}
-		pinfo->pi_ppid = INVALID_PID;
+		pinfo->pi_ppid = INVALID_PID;	// target should be detached immediately after another threat join it
 		pi_drop(targetpid);
 	}
 	lock_release(pidlock);
@@ -507,6 +500,10 @@ pid_parent(pid_t targetpid) {
 }
 
 
+/*
+ * pid_setflag - set diferent kill signal to flag.
+ * special case - SIGCONT: need to send signal to wake up stopped thread
+ */
 int 
 pid_setflag(pid_t targetpid, int signal) {
 
@@ -527,25 +524,25 @@ pid_setflag(pid_t targetpid, int signal) {
 
 	switch(signal){
 	 	case SIGCONT:
-	 		if (pi->flag == SIGSTOP){
-	 			if (pi->pi_exited){
-	 				lock_release(pidlock);
+ 			if (pi->pi_exited){ // existed thread shound't be restarted
+ 				lock_release(pidlock);
 				return EINVAL;
-	 			}
-	 			pi->flag = signal;
-	 			cv_signal(pi->pi_signal, pidlock);
-				break;
-	 		}
-	 		pi->flag = signal;
-	 		break;
+ 			}
+ 			pi->flag = signal;
+ 			// send signal to wake up stopped processs by cv_wait())
+ 			cv_signal(pi->pi_signal, pidlock);	
+			break;
 	 	default:
-	 		pi->flag = signal;
+	 		pi->flag = signal;	// normal cases
 	}
 
 	lock_release(pidlock);
 	return 0;
 }
 
+/*
+ * pid_getflag - get the kill flag of targetpid, the flag will be stored in *signal. 
+ */
 int 
 pid_getflag(pid_t targetpid, int *signal) {
 
@@ -565,12 +562,11 @@ pid_getflag(pid_t targetpid, int *signal) {
 
 	*signal = flag;
 	lock_release(pidlock);
-	return 0;
-	
+	return 0;	
 }
 
 /*
-* To make thread wait until get SIGCONT signal.
+* pid_wait - to make thread wait until get SIGCONT signal (sent by cv_signal()).
 */
 void
 pid_wait(pid_t pid) {

@@ -114,7 +114,6 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  * Placeholder comment to remind you to implement this.
  */
 
-
  int 
  sys_kill(pid_t pid, int sig) {
 
@@ -123,8 +122,7 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  		return EINVAL;
  	}
 
-	//return 0 on success
- 	//corresponding error code otherwise
+ 	//corresponding error code
  	switch(sig){
  	case SIGHUP:
 		return pid_setflag(pid, sig); 	
@@ -145,7 +143,6 @@ sys_waitpid(pid_t pid, int *status, int options, pid_t *retval) {
  	case 0:
 		return pid_setflag(pid, sig);		
  	default: 
-		//pid_setflag(pid, 0);
 		return EUNIMP;				
  	}
  }

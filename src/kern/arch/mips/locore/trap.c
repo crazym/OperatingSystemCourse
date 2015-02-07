@@ -331,38 +331,20 @@ mips_trap(struct trapframe *tf)
 		result = pid_getflag(curthread->t_pid, &sig);
 		switch(sig) {
 			case SIGHUP:
-			// Terminate
-				//pid_detach(curthread->t_pid);
-				thread_exit(sig*4+1);
+				thread_exit(sig*4+1);	// terminate
 				break;
-
 			case SIGINT:
-			// Terminate
-				//pid_detach(curthread->t_pid);
 				thread_exit(sig*4+1);
 				break;
-
 			case SIGKILL:
-			// Terminate
-				//pid_detach(curthread->t_pid);
 				thread_exit(sig*4+1);
 				break;
-
 			case SIGTERM:
-			// Terminate
-				//pid_detach(curthread->t_pid);
 				thread_exit(sig*4+1);
 				break;
-
 			case SIGSTOP:
-			// Stop
-				pid_wait(curthread->t_pid);
+				pid_wait(curthread->t_pid);	// wait until get SIGCONT signal
 				break;
-
-			case SIGCONT:
-			// Continue
-				break;
-
 			default:
 				break;
 		}
@@ -437,7 +419,7 @@ mips_usermode(struct trapframe *tf)
 	 * kernel will (most likely) hang the system, so it's better
 	 * to find out now.
 	 *
-	 * It's necessary for the trap frame used here to be on the
+	 * It's necessary for the trap frame used hertue to be on the
 	 * current thread's own stack. It cannot correctly be on
 	 * either another thread's stack or in the kernel heap.
 	 * (Exercise: why?)

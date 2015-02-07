@@ -89,6 +89,9 @@ int pid_getflag(pid_t targetpid, int *signal);
  */
 int pid_setflag(pid_t targetpid, int signal);
 
+/*
+* to make thread wait until get SIGCONT signal.
+*/
 void pid_wait(pid_t pid);
 
 #endif /* _PID_H_ */

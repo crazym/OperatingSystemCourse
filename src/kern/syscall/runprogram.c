@@ -109,9 +109,6 @@ runprogram(char *progname, char **args, unsigned long nargs)
 		
 		//move the stack pointer down 
 		stackptr -= arg_size;
-		
-		//padding if necessary
-		//stackptr -= stackptr % 4;
 
 		//include the null-terminated
 		//args[c][arg_size-1] = '\0';

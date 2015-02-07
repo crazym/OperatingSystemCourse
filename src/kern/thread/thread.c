@@ -575,7 +575,7 @@ thread_fork(const char *name,
 	 */
 	if (ret != NULL) {
 		*ret = newthread->t_pid;
-	}else { //detach thread immediately
+	}else {		//detach thread immediately
             pid_detach(newthread->t_pid);
         }
 
@@ -833,10 +833,10 @@ void
 thread_exit(int exitcode)
 {
 	struct thread *cur;
-	//???????not sure for using cur->t_addrspace??? (cur->t_addrspace != NULL)
-    // suppress warning until code gets written
 
 	cur = curthread;
+	// call pid_exit() to exit, if cur->t_addrspace is not Null, i.e. it is in
+	//user level and possible to have children, detach the children as well.
 	pid_exit(exitcode, cur->t_addrspace); 
 
 	/* VFS fields */
