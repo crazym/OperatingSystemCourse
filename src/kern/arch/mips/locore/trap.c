@@ -331,38 +331,25 @@ mips_trap(struct trapframe *tf)
 		result = pid_getflag(curthread->t_pid, &sig);
 		switch(sig) {
 			case SIGHUP:
-			// Terminate
-				//pid_detach(curthread->t_pid);
+				// Terminate
 				thread_exit(sig);
 				break;
-
 			case SIGINT:
-			// Terminate
-				//pid_detach(curthread->t_pid);
+				// Terminate
 				thread_exit(sig);
 				break;
-
 			case SIGKILL:
-			// Terminate
-				//pid_detach(curthread->t_pid);
+				// Terminate
 				thread_exit(sig);
 				break;
-
 			case SIGTERM:
-			// Terminate
-				//pid_detach(curthread->t_pid);
+				// Terminate
 				thread_exit(sig);
 				break;
-
 			case SIGSTOP:
-			// Stop
+				// Stop
 				pid_wait(curthread->t_pid);
 				break;
-
-			case SIGCONT:
-			// Continue
-				break;
-
 			default:
 				break;
 		}

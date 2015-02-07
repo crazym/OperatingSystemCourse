@@ -528,17 +528,13 @@ pid_setflag(pid_t targetpid, int signal) {
 
 	switch(signal){
 	 	case SIGCONT:
-	 		if (pi->flag == SIGSTOP){
-	 			if (pi->pi_exited){
-	 				lock_release(pidlock);
+ 			if (pi->pi_exited){
+ 				lock_release(pidlock);
 				return EINVAL;
-	 			}
-	 			pi->flag = signal;
-	 			cv_signal(pi->pi_signal, pidlock);
-				break;
-	 		}
-	 		pi->flag = signal;
-	 		break;
+ 			}
+ 			pi->flag = signal;
+ 			cv_signal(pi->pi_signal, pidlock);
+			break;
 	 	default:
 	 		pi->flag = signal;
 	}

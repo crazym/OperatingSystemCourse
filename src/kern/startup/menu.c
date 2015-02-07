@@ -198,7 +198,6 @@ common_prog(int nargs, char **args)
 		return result;
 	}
 
-	KASSERT(child > 0);
 	if (*(args_copy[nargs-1]) == '&') {
 		pid_detach(child);
 	} 
