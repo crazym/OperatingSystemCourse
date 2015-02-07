@@ -527,33 +527,11 @@ pid_setflag(pid_t targetpid, int signal) {
 	}
 
 	switch(signal){
-
-		case SIGHUP:
-			pi->flag = signal;
-			break;
-		case SIGINT:
-			pi->flag = signal;
-			break;
-	 	case SIGKILL:
-	 		pi->flag = signal;
-	 		break;
-	 	case SIGTERM:
-	 		pi->flag = signal;
-	 		break;	
-	 	case SIGWINCH:
-	 		pi->flag = signal;
-	 		break;	
-	 	case SIGINFO:
-	 		pi->flag = signal;
-	 		break;
-	 	case SIGSTOP:
-	 		pi->flag = signal;
-	 		break;
 	 	case SIGCONT:
 	 		if (pi->flag == SIGSTOP){
 	 			if (pi->pi_exited){
 	 				lock_release(pidlock);
-					return EINVAL;
+				return EINVAL;
 	 			}
 	 			pi->flag = signal;
 	 			cv_signal(pi->pi_signal, pidlock);
@@ -561,6 +539,8 @@ pid_setflag(pid_t targetpid, int signal) {
 	 		}
 	 		pi->flag = signal;
 	 		break;
+	 	default:
+	 		pi->flag = signal;
 	}
 
 	lock_release(pidlock);
