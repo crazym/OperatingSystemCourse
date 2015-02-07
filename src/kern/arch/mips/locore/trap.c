@@ -129,8 +129,6 @@ mips_trap(struct trapframe *tf)
 	uint32_t code;
 	bool isutlb, iskern;
 	int spl;
-	int sig = 0;
-	int result;
 
 	/* The trap frame is supposed to be 37 registers long. */
 	KASSERT(sizeof(struct trapframe)==(37*4));
@@ -322,34 +320,12 @@ mips_trap(struct trapframe *tf)
 	 * stored interrupt state.
 	 */
 	cpu_irqoff();
- done2:
 
-	/*
-	 * The boot thread can get here (e.g. on interrupt return) but
-	 * since it doesn't go to userlevel, it can't be returning to
-	 * userlevel, so there's no need to set cputhreads[] and
-	 * cpustacks[]. Just return.
-	 */
-	if (curthread->t_stack == NULL) {
-		return;
-	}
-
-	cputhreads[curcpu->c_number] = (vaddr_t)curthread;
-	cpustacks[curcpu->c_number] = (vaddr_t)curthread->t_stack + STACK_SIZE;
-
-	/*
-	 * This assertion will fail if either
-	 *   (1) curthread->t_stack is corrupted, or
-	 *   (2) the trap frame is somehow on the wrong kernel stack.
-	 *
-	 * If cpustacks[] is corrupted, the next trap back to the
-	 * kernel will (most likely) hang the system, so it's better
-	 * to find out now.
-	 */
-	KASSERT(SAME_STACK(cpustacks[curcpu->c_number]-1, (vaddr_t)tf));
-
-	// Checking that we came from User-space
-	if (!iskern && !curthread->t_in_interrupt) {
+	//Checking that we came from User-space
+	int sig = 0;
+	int result;
+	//if (!iskern && !curthread->t_in_interrupt) {
+	if (!iskern) {
 		KASSERT(curthread != NULL);
 		//result = 0;
 		result = pid_getflag(curthread->t_pid, &sig);
@@ -379,6 +355,7 @@ mips_trap(struct trapframe *tf)
 				break;
 
 			case SIGSTOP:
+			// Stop
 				pid_wait(curthread->t_pid);
 				break;
 
@@ -390,7 +367,31 @@ mips_trap(struct trapframe *tf)
 				break;
 		}
 	}
+ done2:
 
+	/*
+	 * The boot thread can get here (e.g. on interrupt return) but
+	 * since it doesn't go to userlevel, it can't be returning to
+	 * userlevel, so there's no need to set cputhreads[] and
+	 * cpustacks[]. Just return.
+	 */
+	if (curthread->t_stack == NULL) {
+		return;
+	}
+
+	cputhreads[curcpu->c_number] = (vaddr_t)curthread;
+	cpustacks[curcpu->c_number] = (vaddr_t)curthread->t_stack + STACK_SIZE;
+
+	/*
+	 * This assertion will fail if either
+	 *   (1) curthread->t_stack is corrupted, or
+	 *   (2) the trap frame is somehow on the wrong kernel stack.
+	 *
+	 * If cpustacks[] is corrupted, the next trap back to the
+	 * kernel will (most likely) hang the system, so it's better
+	 * to find out now.
+	 */
+	KASSERT(SAME_STACK(cpustacks[curcpu->c_number]-1, (vaddr_t)tf));
 }
 
 /*

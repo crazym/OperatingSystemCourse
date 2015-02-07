@@ -564,7 +564,7 @@ pid_setflag(pid_t targetpid, int signal) {
 	}
 
 	lock_release(pidlock);
-	return 5;
+	return 0;
 }
 
 int 
