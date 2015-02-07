@@ -147,7 +147,6 @@ syscall(struct trapframe *tf)
         	err = sys_kill(tf->tf_a0, tf->tf_a1);
         	break;
 
-
 	    /* Even more system calls will go here */
  
 	    default:

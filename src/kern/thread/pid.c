@@ -56,9 +56,7 @@ struct pidinfo {
 	volatile bool pi_exited;	// true if thread has exited
 	int pi_exitstatus;		// status (only valid if exited)
 	struct cv *pi_cv;		// use to wait for thread exit
-	//volatile bool pi_detached;	// true if thread has been detached
 	int flag;
-	int joined;				// Number of threads joined to this one
 };
 
 
@@ -319,11 +317,10 @@ int
 pid_detach(pid_t childpid)
 {
 	struct pidinfo *pinfo;
-	
-	if ((childpid == INVALID_PID) || (childpid == BOOTUP_PID)) {
+
+	if (childpid < 0 || childpid == INVALID_PID || childpid == BOOTUP_PID) {
 		return EINVAL;
 	}
-
 
 	lock_acquire(pidlock);
 
@@ -346,7 +343,7 @@ pid_detach(pid_t childpid)
 	}	
 	pinfo->pi_ppid = INVALID_PID;
 	if (pinfo->pi_exited) {
-        pi_drop(childpid);
+    	pi_drop(childpid);
     }
 	lock_release(pidlock);
 
@@ -370,6 +367,7 @@ void
 pid_exit(int status, bool dodetach)
 {
 	struct pidinfo *my_pi;
+
 	
 	// Implement me. Existing code simply sets the exit status.
 	lock_acquire(pidlock);
@@ -385,13 +383,12 @@ pid_exit(int status, bool dodetach)
 	if (dodetach) {
 		int i;
 		for (i=0; i<PROCS_MAX; i++) {
-			//!!!pidinfo[i]
 			if (pidinfo[i] && pidinfo[i]->pi_ppid == my_pi->pi_pid) {
-				// pidinfo[i]->pi_ppid = INVALID_PID;
+				pidinfo[i]->pi_ppid = INVALID_PID;
 
-				// if (pidinfo[i]->pi_exited){
-				// 	pi_drop(pidinfo[i]->pi_pid);
-				// }
+				if (pidinfo[i]->pi_exited){
+					pi_drop(pidinfo[i]->pi_pid);
+				}
 			}
 		}		
 	}
@@ -418,8 +415,8 @@ int
 pid_join(pid_t targetpid, int *status, int flags)
 {
 	struct pidinfo *pinfo;
-	
-	if ((targetpid == INVALID_PID) || (targetpid == BOOTUP_PID)) {
+
+	if (targetpid < 0 || targetpid == INVALID_PID || targetpid == BOOTUP_PID) {
 		return -EINVAL;
 	}
 
@@ -435,7 +432,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 	//???If status is not NULL, the exit status of thread targetpid 
 	//is stored in the location pointed to by status.
 	//or other ErrorMsg
-	//KASSERT(pinfo != NULL);
+
 	if (pinfo == NULL) {
 		lock_release(pidlock);	
 		return -ESRCH;
@@ -447,33 +444,30 @@ pid_join(pid_t targetpid, int *status, int flags)
 		return -EINVAL;
 	}
 
-	//??? The thread targetpid must be in the joinable state; 
-	//it must not have been detached using pid_detach.
-	if (pinfo->pi_ppid == INVALID_PID) {
-		lock_release(pidlock);
-		return -EINVAL;
-	}
-
-	//??while or if
-	if (pinfo->pi_exited == false) {
+	// If thread has not exited
+	if (!pinfo->pi_exited) {
+		// Return immediately on WNOHANG
 		if (flags == WNOHANG) {
 			lock_release(pidlock);
        		return 0;
 		}
+		// Wait until given the signal to stop waiting
 		cv_wait(pinfo->pi_cv, pidlock);
 		KASSERT(pinfo->pi_exited == true); // double check target exit
+		
+		if (status != NULL) {
+			*status = pinfo->pi_exitstatus;
+		}
 	}
+	// If exited already
+	else {
 
-	if (status != NULL) {
-		*status = pinfo->pi_exitstatus;
+		if (status != NULL) {
+			*status = pinfo->pi_exitstatus;
+		}
+		pinfo->pi_ppid = INVALID_PID;
+		pi_drop(targetpid);
 	}
-
-	//When a joinable thread terminates, its pidinfo struct (containing 
-	//the PID and exit status, along with other fields) must be retained 
-	//until another thread performs pid_join (or pid_detach) on it.
-	pinfo->pi_ppid = INVALID_PID;
-	// ???????
-	//pi_drop(targetpid);
 	lock_release(pidlock);
 
 	return targetpid;
@@ -481,7 +475,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 
 /*
  * pid_parent - returns the parent id of process with targetpid.
- * If targetpid does not exist, then -1 is returned.
+ * If targetpid does not exist, then -ESRCH is returned.
  */
 pid_t
 pid_parent(pid_t targetpid) {
@@ -508,6 +502,10 @@ int
 pid_setflag(pid_t targetpid, int signal) {
 
 	struct pidinfo *pi;
+
+	if (targetpid < 0 || targetpid == INVALID_PID) {
+		return ESRCH;
+	}
 
 	lock_acquire(pidlock);
 	pi = pi_get(targetpid);	

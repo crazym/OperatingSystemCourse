@@ -199,12 +199,12 @@ common_prog(int nargs, char **args)
 	}
 
 	KASSERT(child > 0);
-	if (*(args_copy[nargs-1]) == '&'){
+	if (*(args_copy[nargs-1]) == '&') {
 		pid_detach(child);
-	}else{
+	} 
+	else {
 		// Wait for the child process to finish before continuing
 		result = pid_join(child, NULL, 0);
-
 	}
 	
 	return 0;
