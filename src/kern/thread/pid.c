@@ -220,7 +220,6 @@ pi_drop(pid_t pid)
 	nprocs--;
 }
 
-////////////////////////////////////////////////////////////
 
 /*
  * Helper function for pid_alloc.
@@ -336,7 +335,7 @@ pid_detach(pid_t childpid)
 
 	pinfo = pi_get(childpid);
 
-	if (pinfo == NULL) {	
+	if (pinfo == NULL) {	//No thread could be found corresponding to that specified by childpid	
 		lock_release(pidlock);
 		return ESRCH;
 	}

@@ -333,25 +333,25 @@ mips_trap(struct trapframe *tf)
 			case SIGHUP:
 			// Terminate
 				//pid_detach(curthread->t_pid);
-				thread_exit(sig);
+				thread_exit(sig*4+1);
 				break;
 
 			case SIGINT:
 			// Terminate
 				//pid_detach(curthread->t_pid);
-				thread_exit(sig);
+				thread_exit(sig*4+1);
 				break;
 
 			case SIGKILL:
 			// Terminate
 				//pid_detach(curthread->t_pid);
-				thread_exit(sig);
+				thread_exit(sig*4+1);
 				break;
 
 			case SIGTERM:
 			// Terminate
 				//pid_detach(curthread->t_pid);
-				thread_exit(sig);
+				thread_exit(sig*4+1);
 				break;
 
 			case SIGSTOP:
