@@ -169,7 +169,7 @@ static
 int
 common_prog(int nargs, char **args)
 {
-	int result;
+	int result, detach;
 	pid_t child;
 	char **args_copy;
 #if OPT_SYNCHPROBS
@@ -185,6 +185,16 @@ common_prog(int nargs, char **args)
 		return ENOMEM;
 	}
 
+	if (*(args_copy[nargs-1]) == '&') {
+		detach = 1;
+		nargs--;
+		kfree(args_copy[nargs]);
+		args_copy[nargs] = NULL;
+	}
+	else {
+		detach = 0;
+	}
+
 	/* demke: and now call thread_fork with the copy */
 
 	result = thread_fork(args_copy[0] /* thread name */,
@@ -198,7 +208,7 @@ common_prog(int nargs, char **args)
 		return result;
 	}
 
-	if (*(args_copy[nargs-1]) == '&') {
+	if (detach) {
 		pid_detach(child);
 	} 
 	else {
