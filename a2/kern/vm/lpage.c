@@ -330,7 +330,7 @@ lpage_copy(struct lpage *oldlp, struct lpage **lpret)
 		lpage_unlock(oldlp);
 		oldpa = coremap_allocuser(oldlp);
 		if (oldpa == INVALID_PADDR) {
-			coremap_unpin(newlp->lp_paddr & PAGE_FRAME);
+			coremap_unpin(newlp->lp_paddr & PAGE_FRAME);                                     
 			lpage_destroy(newlp);
 			return ENOMEM;
 		}
@@ -422,11 +422,97 @@ lpage_zerofill(struct lpage **lpret)
 int
 lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 {
-	(void)lp;	// suppress compiler warning until code gets written
-	(void)as;	// suppress compiler warning until code gets written
-	(void)faulttype;// suppress compiler warning until code gets written
-	(void)va;	// suppress compiler warning until code gets written
-	return EUNIMP;	// suppress compiler warning until code gets written
+	// (void)lp;	// suppress compiler warning until code gets written
+	// (void)as;	// suppress compiler warning until code gets written
+	// (void)faulttype;// suppress compiler warning until code gets written
+	// (void)va;	// suppress compiler warning until code gets written
+
+
+	/* Ideas: 
+	Lock the page
+	Check if lpage is in memory... ie check lp_paddr
+	If lpage is in memory, then get its lp_paddr and update the tlb using mmu_map
+	Else check the swap disk, ie. check lp_swap_addr to see if it is on swap disk.
+	If on swap disk, then allocate a frame in memory to store the page
+	then Read page from disk, update page table entry, update TLB, resume.
+	If memory is full when allocating, then must evict another page from memory.
+
+	If faulttype is READ/WRITE, check if page exists.
+	If not, allocate a new page and modify the mapping. Then insert into TLB
+
+	If faulttype is READONLY, check if user can actually write to this page. See as_define_region, look for permissions there
+	If can write, get the index of TLB entry, set the bit to dirty and write to it.
+	Set the physical page_state to dirty as well.
+	*/
+
+	paddr_t pa;
+	off_t swap;
+
+
+	// Make sure we don't already have lock
+	KASSERT(!spinlock_do_i_hold(&lp->lp_spinlock));
+
+	// Lock & Pin
+	lpage_lock_and_pin(lp);
+	pa = lp->lp_paddr & PAGE_FRAME;
+
+	// Check if in memory
+	if (pa != INVALID_PADDR) {
+
+		switch (faulttype) {
+			case VM_FAULT_READONLY:
+			panic("Got VM_FAULT_READONLY\n");
+			case VM_FAULT_READ:
+			case VM_FAULT_WRITE:
+			// Set as writable
+			mmu_map(as, va, pa, 1);
+			// Should be unpinned at this point
+			KASSERT(!coremap_pageispinned(pa));
+			lpage_unlock(lp);
+			break;
+			default:
+			// Unlock and unpin
+			lpage_unlock(lp);
+			coremap_unpin(pa);
+			return EINVAL;
+		}
+	}
+	// No in memory, must swap
+	else { 
+		swap = lp->lp_swapaddr;
+		// Ensure page is in swap
+		KASSERT(swap != INVALID_SWAPADDR);
+		lpage_unlock(lp);
+
+		// Allocate space in memory, potentially evicting others
+		pa = coremap_allocuser(lp);
+
+		// Not enough memory even after evicting...
+		if (pa == INVALID_PADDR) {
+			coremap_unpin(pa);
+			return ENOMEM;
+		}
+
+		// allocuser should have marked page in memory as pinned
+		KASSERT(coremap_pageispinned(pa));
+		lock_acquire(global_paging_lock);
+		swap_pagein(pa, swap);
+		lpage_lock(lp);
+		lock_release(global_paging_lock);
+		
+		// Make sure no one else did a pagein
+		KASSERT((lp->lp_paddr & PAGE_FRAME) == INVALID_PADDR);
+		
+		lp->lp_paddr = pa;
+
+		// Set as writable in TLB
+		mmu_map(as, va, pa, 1);
+
+		// Should be unpinned at this point
+		KASSERT(!coremap_pageispinned(pa));
+		lpage_unlock(lp);
+	}
+	return 0;
 }
 
 /*
@@ -443,5 +529,38 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 void
 lpage_evict(struct lpage *lp)
 {
-	(void)lp;	// suppress compiler warning until code gets written
+	/* Ideas
+	Check dirty
+	If dirty, write to lp_swapaddr
+	If not on lp_swap_addr, then walso write to lp_swap_addr
+	Set lp_paddr as invalid
+	*/
+	paddr_t pa;
+	off_t swap;
+
+	// Make sure we don't already have lock
+	KASSERT(!spinlock_do_i_hold(&lp->lp_spinlock));
+	KASSERT(lock_do_i_hold(global_paging_lock));
+
+	lpage_lock(lp);
+	
+	pa = lp->lp_paddr & PAGE_FRAME;
+	swap = lp->lp_swapaddr;
+
+	KASSERT(swap != INVALID_SWAPADDR);
+	KASSERT(pa != INVALID_PADDR);
+
+	// Make sure already pinned
+	KASSERT(coremap_pageispinned(pa));
+
+	// Check dirty
+	if (LP_ISDIRTY(lp)) {
+		lpage_unlock(lp);
+		swap_pageout(pa, swap);
+		lpage_lock(lp);
+		LP_CLEAR(lp, LPF_DIRTY);
+	}
+
+	lp->lp_paddr = INVALID_PADDR;
+	lpage_unlock(lp);
 }
