@@ -448,27 +448,31 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 	paddr_t pa;
 	off_t swap;
 
-
+	KASSERT(lp != NULL);
 	// Make sure we don't already have lock
 	KASSERT(!spinlock_do_i_hold(&lp->lp_spinlock));
 
 	// Lock & Pin
 	lpage_lock_and_pin(lp);
 	pa = lp->lp_paddr & PAGE_FRAME;
-
+	KASSERT((va & PAGE_FRAME) == va);
 	// Check if in memory
 	if (pa != INVALID_PADDR) {
 
 		switch (faulttype) {
 			case VM_FAULT_READONLY:
-			panic("Got VM_FAULT_READONLY\n");
-			case VM_FAULT_READ:
 			case VM_FAULT_WRITE:
-			// Set as writable
+			// if (!LP_ISWRITABLE(lp)) {
+			// 	lpage_unlock(lp);
+			// 	coremap_unpin(pa);
+			// 	panic("Write to readonly\n");
+			// 	return EACCES;
+			// }
 			mmu_map(as, va, pa, 1);
-			// Should be unpinned at this point
-			KASSERT(!coremap_pageispinned(pa));
-			lpage_unlock(lp);
+			LP_SET(lp, LPF_DIRTY);
+			break;
+			case VM_FAULT_READ:
+			mmu_map(as, va, pa, 0);
 			break;
 			default:
 			// Unlock and unpin
@@ -476,6 +480,8 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 			coremap_unpin(pa);
 			return EINVAL;
 		}
+		KASSERT(!coremap_pageispinned(pa));
+		lpage_unlock(lp);
 	}
 	// No in memory, must swap
 	else { 
@@ -489,7 +495,6 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 
 		// Not enough memory even after evicting...
 		if (pa == INVALID_PADDR) {
-			coremap_unpin(pa);
 			return ENOMEM;
 		}
 
@@ -502,11 +507,12 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 		
 		// Make sure no one else did a pagein
 		KASSERT((lp->lp_paddr & PAGE_FRAME) == INVALID_PADDR);
-		
+		KASSERT(lp->lp_swapaddr == swap);
+
 		lp->lp_paddr = pa;
 
 		// Set as writable in TLB
-		mmu_map(as, va, pa, 1);
+		mmu_map(as, va, pa, 0);
 
 		// Should be unpinned at this point
 		KASSERT(!coremap_pageispinned(pa));
@@ -553,12 +559,13 @@ lpage_evict(struct lpage *lp)
 	// Make sure already pinned
 	KASSERT(coremap_pageispinned(pa));
 
-	// Check dirty
+	//Check dirty
 	if (LP_ISDIRTY(lp)) {
 		lpage_unlock(lp);
 		swap_pageout(pa, swap);
 		lpage_lock(lp);
-		LP_CLEAR(lp, LPF_DIRTY);
+		KASSERT(lp->lp_swapaddr == swap);
+		KASSERT((lp->lp_paddr & PAGE_FRAME) == pa);
 	}
 
 	lp->lp_paddr = INVALID_PADDR;
