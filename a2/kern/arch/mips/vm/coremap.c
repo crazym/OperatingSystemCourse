@@ -362,8 +362,18 @@ static
 uint32_t 
 page_replace(void)
 {
-    // Complete this function.
-	return 0;
+	uint32_t check;
+
+    while(check < 22 * num_coremap_entries){
+    	uint32_t index = random() % num_coremap_entries;    // randomly generated an int, convert into a valid lpge index
+		if ( !coremap[index].cm_pinned && !coremap[index].cm_kernel){
+			LP_SET(coremap[index].cm_lpage, LPF_DIRTY);
+			return index;	
+		}
+		check++;
+    }
+	// error check??
+	return -1;	
 }
 
 #else /* not OPT_RANDPAGE */
@@ -375,12 +385,24 @@ page_replace(void)
  * pages that are pinned or that belong to the kernel.
  */
 
+static uint32_t next_index = 0;    // set static index variable to track the next lpage index needed to check 
 static
 uint32_t
 page_replace(void)
 {
-	// Complete this function.
-	return 0;
+	uint32_t check = 0;
+	while( check < num_coremap_entries){    // only check valid lpage index
+		next_index = next_index % num_coremap_entries;
+		if ( !coremap[next_index].cm_pinned && !coremap[next_index].cm_kernel){
+			//LP_SET(coremap[next_index].cm_lpage, LPF_DIRTY);    // set dirty bit
+			next_index++;    // update next_index for next time replace checking
+			return (next_index-1);    // return the replaced lpage index
+		}else{
+			next_index++;
+			check++;
+		}
+	}
+	return -1;    // no valid lpage can be replaced || other execution error
 }
 
 #endif /* OPT_RANDPAGE */
