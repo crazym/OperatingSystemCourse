@@ -448,43 +448,15 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 	paddr_t pa;
 	off_t swap;
 
-	KASSERT(lp != NULL);
 	// Make sure we don't already have lock
 	KASSERT(!spinlock_do_i_hold(&lp->lp_spinlock));
 
 	// Lock & Pin
 	lpage_lock_and_pin(lp);
 	pa = lp->lp_paddr & PAGE_FRAME;
-	KASSERT((va & PAGE_FRAME) == va);
-	// Check if in memory
-	if (pa != INVALID_PADDR) {
 
-		switch (faulttype) {
-			case VM_FAULT_READONLY:
-			case VM_FAULT_WRITE:
-			// if (!LP_ISWRITABLE(lp)) {
-			// 	lpage_unlock(lp);
-			// 	coremap_unpin(pa);
-			// 	panic("Write to readonly\n");
-			// 	return EACCES;
-			// }
-			mmu_map(as, va, pa, 1);
-			LP_SET(lp, LPF_DIRTY);
-			break;
-			case VM_FAULT_READ:
-			mmu_map(as, va, pa, 0);
-			break;
-			default:
-			// Unlock and unpin
-			lpage_unlock(lp);
-			coremap_unpin(pa);
-			return EINVAL;
-		}
-		KASSERT(!coremap_pageispinned(pa));
-		lpage_unlock(lp);
-	}
-	// No in memory, must swap
-	else { 
+	// Check if in memory
+	if (pa == INVALID_PADDR) {
 		swap = lp->lp_swapaddr;
 		// Ensure page is in swap
 		KASSERT(swap != INVALID_SWAPADDR);
@@ -507,17 +479,30 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 		
 		// Make sure no one else did a pagein
 		KASSERT((lp->lp_paddr & PAGE_FRAME) == INVALID_PADDR);
-		KASSERT(lp->lp_swapaddr == swap);
-
+		DEBUG(DB_VM, "Swapped in page from SWAP 0x%llu to PA 0x%x\n",
+			swap, pa);
 		lp->lp_paddr = pa;
-
-		// Set as writable in TLB
-		mmu_map(as, va, pa, 0);
-
-		// Should be unpinned at this point
-		KASSERT(!coremap_pageispinned(pa));
-		lpage_unlock(lp);
 	}
+
+	switch (faulttype) {
+		case VM_FAULT_READONLY:
+		case VM_FAULT_WRITE:
+		LP_SET(lp, LPF_DIRTY);
+		break;
+		case VM_FAULT_READ:
+		break;
+		default:
+		// Unlock and unpin
+		lpage_unlock(lp);
+		coremap_unpin(pa);
+		panic("Invalid faulttype!\n");
+		return EINVAL;
+	}
+	DEBUG(DB_TLB, "Saving to TLB VA 0x%x to PA 0x%x\n",
+			va & PAGE_FRAME, pa);
+	mmu_map(as, va, pa, LP_ISDIRTY(lp));
+	KASSERT(!coremap_pageispinned(pa));
+	lpage_unlock(lp);
 	return 0;
 }
 
@@ -561,13 +546,14 @@ lpage_evict(struct lpage *lp)
 
 	//Check dirty
 	if (LP_ISDIRTY(lp)) {
+		DEBUG(DB_VM, "Swapping out page from PA 0x%x to SWAP 0x%llu\n",
+			pa, swap);
+		lp->lp_paddr = INVALID_PADDR;
 		lpage_unlock(lp);
 		swap_pageout(pa, swap);
-		lpage_lock(lp);
-		KASSERT(lp->lp_swapaddr == swap);
-		KASSERT((lp->lp_paddr & PAGE_FRAME) == pa);
 	}
-
-	lp->lp_paddr = INVALID_PADDR;
-	lpage_unlock(lp);
+	else {
+		lp->lp_paddr = INVALID_PADDR;
+		lpage_unlock(lp);
+	}
 }
