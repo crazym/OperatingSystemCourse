@@ -362,12 +362,12 @@ static
 uint32_t 
 page_replace(void)
 {
-	uint32_t check;
+	uint32_t check = 0;
 
     while(check < 22 * num_coremap_entries){
     	uint32_t index = random() % num_coremap_entries;    // randomly generated an int, convert into a valid lpge index
 		if ( !coremap[index].cm_pinned && !coremap[index].cm_kernel){
-			LP_SET(coremap[index].cm_lpage, LPF_DIRTY);
+			//LP_SET(coremap[index].cm_lpage, LPF_DIRTY);
 			return index;	
 		}
 		check++;
