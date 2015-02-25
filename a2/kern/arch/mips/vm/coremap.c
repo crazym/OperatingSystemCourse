@@ -366,6 +366,7 @@ page_replace(void)
 
     while(check < CHECK_ROUND * num_coremap_entries){
     	uint32_t index = random() % num_coremap_entries;    // randomly generated an int, convert into a valid lpge index
+		DEBUG(DB_TLB, "rand check %d\n", index);
 		if ( !coremap[index].cm_pinned && !coremap[index].cm_kernel){
 			return index;	
 		}
@@ -392,7 +393,9 @@ page_replace(void)
     for (uint32_t i = (prev_index+1) % num_coremap_entries; 
     	    i != prev_index; 
     	    i = (i+1) % num_coremap_entries){
+    	DEBUG(DB_TLB, "check %d\n", i);
         if ( !coremap[i].cm_pinned && !coremap[i].cm_kernel){
+        	prev_index = i;
 		    return i;	
 	    }
     }
