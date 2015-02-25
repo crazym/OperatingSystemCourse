@@ -70,7 +70,7 @@
  * non-kernel pages available in memory.
  */
 #define CM_MIN_SLACK		8
-
+#define CHECK_ROUND		    22
 
 /*
  * Coremap entry structure.
@@ -364,16 +364,15 @@ page_replace(void)
 {
 	uint32_t check = 0;
 
-    while(check < 22 * num_coremap_entries){
+    while(check < CHECK_ROUND * num_coremap_entries){
     	uint32_t index = random() % num_coremap_entries;    // randomly generated an int, convert into a valid lpge index
 		if ( !coremap[index].cm_pinned && !coremap[index].cm_kernel){
-			//LP_SET(coremap[index].cm_lpage, LPF_DIRTY);
 			return index;	
 		}
 		check++;
     }
-	// error check??
-	return -1;	
+	panic("page replace: cannot find free slot in memory.\n");
+	return 0;
 }
 
 #else /* not OPT_RANDPAGE */
@@ -385,25 +384,22 @@ page_replace(void)
  * pages that are pinned or that belong to the kernel.
  */
 
-static uint32_t next_index = 0;    // set static index variable to track the next lpage index needed to check 
+static uint32_t prev_index = 0;    // set static index variable to track the next lpage index needed to check 
 static
 uint32_t
 page_replace(void)
 {
-	uint32_t check = 0;
-	while( check < num_coremap_entries){    // only check valid lpage index
-		next_index = next_index % num_coremap_entries;
-		if ( !coremap[next_index].cm_pinned && !coremap[next_index].cm_kernel){
-			//LP_SET(coremap[next_index].cm_lpage, LPF_DIRTY);    // set dirty bit
-			next_index++;    // update next_index for next time replace checking
-			return (next_index-1);    // return the replaced lpage index
-		}else{
-			next_index++;
-			check++;
-		}
-	}
-	return -1;    // no valid lpage can be replaced || other execution error
+    for (uint32_t i = (prev_index+1) % num_coremap_entries; 
+    	    i != prev_index; 
+    	    i = (i+1) % num_coremap_entries){
+        if ( !coremap[i].cm_pinned && !coremap[i].cm_kernel){
+		    return i;	
+	    }
+    }
+    panic("page replace: cannot find free slot in memory.\n");
+    return 0;
 }
+
 
 #endif /* OPT_RANDPAGE */
 
