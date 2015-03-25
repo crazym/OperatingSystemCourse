@@ -1,0 +1,29 @@
+Part1: Open File Table
+	-kern/syscall/file.c
+		- file_open()
+		- file_close(int fd)
+		- filetable_init(void)
+		- filetable_destroy(struct filetable *ft)
+
+Part2: System Calls
+	- kern/syscall/file_syscalls.c
+		- sys_open(): uses file_open()
+		- sys_close(): uses file_close(int fd)
+		- sys_dup2()
+		- sys_read() 
+		- sys_write() 
+		- sys_lseek() 
+		- sys_chdir()
+		- sys_getcwd() 
+		- getdirentry()
+		- fstat() 
+
+Part3: SFS getdirentry implementation
+	- kern/fs/sfs/sfs_vnops.c: to replace 'UNIMP'
+		- sfs_getdirentry: not found in the file
+		- struct sfs_dirops{}: modify
+
+Part4: Using space in SFS inodes
+	- kern/include/kern/sfs.h
+		- struct sfs_inode{}: modify with "char sfi_inlinedata[SFS_INLINED_BYTES]" 
+		- modify the code in sfs_vnops.c to store the first SFS_INLINED_BYTES of file data in the inode itself: shenmegui =. =!
