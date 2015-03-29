@@ -51,8 +51,9 @@ file_open(char *filename, int flags, int mode, int *retfd)
     fhandle->ref_count = 1;
 
 	fhandle->flock = lock_create("file handle lock"); 
-	if (fhandle->flock){
+	if (fhandle->flock == NULL){
 		vfs_close(vn);
+		kfree(fhandle);
 		return ENOMEM;
 	}
 
@@ -68,6 +69,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 	if (i == __OPEN_MAX and *retfd != i){
 		vfs_close(vn);
 		lock_destory(fhandle->flock);
+		kfree(fhandle);
 		return ENOMEM;
 	}
 
