@@ -91,11 +91,13 @@ sys_open(userptr_t filename, int flags, int mode, int *retval)
 	int result;
 
 	if ( (fname = (char *)kmalloc(__PATH_MAX)) == NULL) {
+		*retval = -1; // need this??
 		return ENOMEM;
 	}
 
 	result = copyinstr(filename, fname, __PATH_MAX, NULL);
 	if (result) {
+		*retval = -1; // need this??
 		kfree(fname);
 		return result;
 	}
@@ -157,7 +159,7 @@ sys_read(int fd, userptr_t buf, size_t size, int *retval)
 
 	/* Make sure we were able to init the cons_vnode */
 	if (cons_vnode == NULL) {
-	  return ENODEV;
+	  	return ENODEV;
 	}
 
 	/* better be a valid file descriptor */
@@ -165,7 +167,7 @@ sys_read(int fd, userptr_t buf, size_t size, int *retval)
 	 * are supported, and they can't be redirected to a file
 	 */
 	if (fd < 0 || fd > 2) {
-	  return EBADF;
+	  	return EBADF;
 	}
 
 	/* set up a uio with the buffer, its size, and the current offset */
