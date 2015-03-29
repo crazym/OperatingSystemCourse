@@ -26,13 +26,52 @@
 int
 file_open(char *filename, int flags, int mode, int *retfd)
 {
-	(void)filename;
-	(void)flags;
-	(void)retfd;
-	(void)mode;
+	int open_f;
+	struct vnode *vn;
+	struct file_handle *fhandle;
+	int cur_fd;
 
+	// get vnode
+	open_f = vfs_open(filename, flags, mode, &vn);
+    if (open_f){
+        return open_f;
+    } 
 
-	return EUNIMP;
+    fhandle = kmalloc(sizeof(struct file_handle));
+    if (fhandle == NULL){
+    	vfs_close(vn);
+    	return ENOMEM;
+    }
+
+    strcp(fhandle->fname, filename);
+
+    fhandle->fvnode = vn;
+	fhandle->cur_po = 0;
+	fhandle->fflag = flags; 
+    fhandle->ref_count = 1;
+
+	fhandle->flock = lock_create("file handle lock"); 
+	if (fhandle->flock){
+		vfs_close(vn);
+		return ENOMEM;
+	}
+
+	//add file handle to file table
+	for (int i=3; i<__OPEN_MAX; i++){
+		if (curthread->t_filetable->file_handles[i] == NULL){
+			curthread->t_filetable->file_handles[i] = fhandle;
+			*retfd = i;
+			break;
+		}
+	}
+	//file table is full, cannot add fhandle
+	if (i == __OPEN_MAX and *retfd != i){
+		vfs_close(vn);
+		lock_destory(fhandle->flock);
+		return ENOMEM;
+	}
+
+	return 0;
 }
 
 
@@ -45,9 +84,30 @@ file_open(char *filename, int flags, int mode, int *retfd)
 int
 file_close(int fd)
 {
-        (void)fd;
+	int close_f;
+	struct file_handle *fhandle;
 
-	return EUNIMP;
+	*fhandle = curthread->t_filetable->ft_openfiles[fd];
+	if (fd < 3 || fd >= __OPEN_MAX || *fhandle == NULL){
+		return EBADF;
+	};
+
+	lock_aquire(fhandle->flock);
+
+	//if only 1 reference to the file, can free file handle after close the file
+	if (fhandle->ref_count == 1){
+		vfs_close(fhandle->fvnode);
+		lock_release(fhandle->flock);
+		lock_destory(fhandle->flock);
+		//???kfree(fhandle->fname); and ref_count
+		kfree(fhandle);
+	} else{
+		fhandle->ref_count--;
+		lock_release(fhandle->flock);
+	}
+	curthread->t_filetable->file_handles[fd] = NULL;
+
+	return 0;
 }
 
 /*** filetable functions ***/
@@ -70,6 +130,42 @@ file_close(int fd)
 int
 filetable_init(void)
 {
+	struct filetable *filetable = kmalloc(sizeof(struct filetable));
+	if (filetable == NULL){
+		return ENOMEM;
+	}
+
+	/*
+	for (fd = 0; fd < __OPEN_MAX; fd++) {
+        filetable->file_handles[fd] = NULL;
+    }
+ 	*/
+
+	curthread->t_filetable = filetable;
+	
+
+    char path[5];
+    int fd;
+    int open_f;
+	
+    strcpy(path, "con:");
+	open_f = file_open(path, O_RDONLY, 0, &fd);
+	if open_f{
+		return open_f;
+	}
+
+	strcpy(path, "con:");
+	open_f = file_open(path, O_WTONLY, 0, &fd);
+	if open_f{
+		return open_f;
+	}
+
+	strcpy(path, "con:");
+	open_f = file_open(path, O_WTONLY, 0, &fd); // O_WTONLY??
+	if open_f{
+		return open_f;
+	}
+
 	return 0;
 }	
 
@@ -82,7 +178,22 @@ filetable_init(void)
 void
 filetable_destroy(struct filetable *ft)
 {
-        (void)ft;
+        int fd;
+        int close_f;
+        // if ft != NULL ??
+        if (ft == NULL){
+        	kprintf("Filetable does not exists\n");
+        } else{
+        	for (fd = 0; fd < __OPEN_MAX; fd++) {
+	            if (ft->file_handles[fd]) {
+	                close_f = file_close(fd);
+	                if (close_f){
+	                	kprintf("Could not close file with fd %d in the table\n", fd);
+	                }
+	            }
+	        }
+        }
+        kfree(ft);
 }	
 
 

@@ -11,6 +11,19 @@
 
 struct vnode;
 
+/**
+ * file table handles
+ */
+struct file_handle {
+	char *fname;
+	struct vnode* fvnode;
+	off_t cur_po;
+	int fflag; 
+    int ref_count;
+	struct lock *flock; 
+    
+};
+
 /*
  * filetable struct
  * just an array, nice and simple.  
@@ -18,7 +31,7 @@ struct vnode;
  * array of ints is just intended to make the compiler happy.
  */
 struct filetable {
-	int changeme[__OPEN_MAX]; /* dummy type */
+	struct file_handle* file_handles[__OPEN_MAX]; /* dummy type */
 };
 
 /* these all have an implicit arg of the curthread's filetable */
