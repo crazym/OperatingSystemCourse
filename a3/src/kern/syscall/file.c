@@ -11,6 +11,12 @@
 #include <kern/unistd.h>
 #include <file.h>
 #include <syscall.h>
+#include <lib.h>
+#include <vfs.h>
+#include <vnode.h>
+#include <kern/fcntl.h>
+#include <synch.h>
+#include <current.h>
 
 /*** openfile functions ***/
 
@@ -29,6 +35,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 	int open_f;
 	struct vnode *vn;
 	struct file_handle *fhandle;
+	int i;
 
 	// get vnode
 	open_f = vfs_open(filename, flags, mode, &vn);
@@ -57,7 +64,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 	}
 
 	//add file handle to file table
-	for (int i=3; i<__OPEN_MAX; i++){
+	for (i=3; i<__OPEN_MAX; i++){
 		if (curthread->t_filetable->file_handles[i] == NULL){
 			curthread->t_filetable->file_handles[i] = fhandle;
 			*retfd = i;
@@ -65,7 +72,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 		}
 	}
 	//file table is full, cannot add fhandle
-	if (i == __OPEN_MAX and *retfd != i){
+	if (i == __OPEN_MAX && *retfd != i){
 		vfs_close(vn);
 		lock_destory(fhandle->flock);
 		kfree(fhandle);
@@ -87,8 +94,8 @@ file_close(int fd)
 {
 	struct file_handle *fhandle;
 
-	*fhandle = curthread->t_filetable->ft_openfiles[fd];
-	if (fd < 3 || fd >= __OPEN_MAX || *fhandle == NULL){
+	fhandle = curthread->t_filetable->file_handles[fd];
+	if (fd < 3 || fd >= __OPEN_MAX  || fhandle == NULL){
 		return EBADF;
 	};
 
@@ -150,19 +157,19 @@ filetable_init(void)
 	
     strcpy(path, "con:");
 	open_f = file_open(path, O_RDONLY, 0, &fd);
-	if open_f{
+	if (open_f){
 		return open_f;
 	}
 
 	strcpy(path, "con:");
-	open_f = file_open(path, O_WTONLY, 0, &fd);
-	if open_f{
+	open_f = file_open(path, O_WRONLY, 0, &fd);
+	if (open_f){
 		return open_f;
 	}
 
 	strcpy(path, "con:");
-	open_f = file_open(path, O_WTONLY, 0, &fd); // O_WTONLY??
-	if open_f{
+	open_f = file_open(path, O_WRONLY, 0, &fd); // O_WTONLY??
+	if (open_f){
 		return open_f;
 	}
 
