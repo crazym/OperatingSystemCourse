@@ -29,7 +29,6 @@ file_open(char *filename, int flags, int mode, int *retfd)
 	int open_f;
 	struct vnode *vn;
 	struct file_handle *fhandle;
-	int cur_fd;
 
 	// get vnode
 	open_f = vfs_open(filename, flags, mode, &vn);
@@ -86,7 +85,6 @@ file_open(char *filename, int flags, int mode, int *retfd)
 int
 file_close(int fd)
 {
-	int close_f;
 	struct file_handle *fhandle;
 
 	*fhandle = curthread->t_filetable->ft_openfiles[fd];
