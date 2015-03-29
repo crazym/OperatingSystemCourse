@@ -49,7 +49,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
     	return ENOMEM;
     }
 
-    strcp(fhandle->fname, filename);
+    strcpy(fhandle->fname, filename);
 
     fhandle->fvnode = vn;
 	fhandle->cur_po = 0;
@@ -74,7 +74,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 	//file table is full, cannot add fhandle
 	if (i == __OPEN_MAX && *retfd != i){
 		vfs_close(vn);
-		lock_destory(fhandle->flock);
+		lock_destroy(fhandle->flock);
 		kfree(fhandle);
 		return ENOMEM;
 	}
@@ -99,13 +99,13 @@ file_close(int fd)
 		return EBADF;
 	};
 
-	lock_aquire(fhandle->flock);
+	lock_acquire(fhandle->flock);
 
 	//if only 1 reference to the file, can free file handle after close the file
 	if (fhandle->ref_count == 1){
 		vfs_close(fhandle->fvnode);
 		lock_release(fhandle->flock);
-		lock_destory(fhandle->flock);
+		lock_destroy(fhandle->flock);
 		//???kfree(fhandle->fname); and ref_count
 		kfree(fhandle);
 	} else{
