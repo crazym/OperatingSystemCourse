@@ -831,7 +831,7 @@ sfs_getdirentry(struct vnode *dir, struct uio *uio) {
 		}
 		// If direntry is not empty
 		if (sd.sfd_ino != SFS_NOINO) {
-			result = uiomove(sd.sfd_name, uio->uio_resid, uio);
+			result = uiomove(sd.sfd_name, SFS_NAMELEN, uio);
 			if (result) {
 				vfs_biglock_release();
 				return result;
