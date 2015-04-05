@@ -782,6 +782,70 @@ sfs_lookonce(struct sfs_vnode *sv, const char *name,
 	return 0;
 }
 
+/*
+ * A3: getdirentry:
+ *    vop_getdirentry - Read a single filename from a directory into a
+ *                      uio, choosing what name based on the offset
+ *                      field in the uio, and updating that field.
+ *                      Unlike with I/O on regular files, the value of
+ *                      the offset field is not interpreted outside
+ *                      the filesystem and thus need not be a byte
+ *                      count. However, the uio_resid field should be
+ *                      handled in the normal fashion.
+ *                      On non-directory objects, return ENOTDIR.
+ */
+
+static
+int
+sfs_getdirentry(struct vnode *dir, struct uio *uio) {
+	// Ideas
+	// dir is a vnode representing a directory
+	// Should verify that vnode is indeed a directory
+	// Then write the filename of the vnode into the uio.
+	// Q: What named based on the offset field?
+	// What's the value of the offset field?
+	// What about uio_resid?
+
+	struct sfs_vnode *sv = dir->vn_data;
+	struct sfs_dir sd;
+	int result, nentries, i;
+
+	KASSERT(uio->uio_rw==UIO_READ);
+
+	vfs_biglock_acquire();
+
+	// Check if directory
+	if (sv->sv_i.sfi_type!=SFS_TYPE_DIR) {
+		vfs_biglock_release();
+		return ENOTDIR;
+	}
+
+	nentries = sfs_dir_nentries(sv);
+
+	// Read direntry from slot uio_offset
+	for(i=uio->uio_offset; i <nentries; i++) {
+		result = sfs_readdir(sv, &sd, i);
+		if (result) {
+			vfs_biglock_release();
+			return result;
+		}
+		// If direntry is not empty
+		if (sd.sfd_ino != SFS_NOINO) {
+			result = uiomove(sd.sfd_name, uio->uio_resid, uio);
+			if (result) {
+				vfs_biglock_release();
+				return result;
+			}
+			uio->uio_offset = i+1;
+			vfs_biglock_release();
+			return 0;
+		}
+	}
+	// We are at the end of entries, nothing written
+	vfs_biglock_release();
+	return 0;
+}
+
 ////////////////////////////////////////////////////////////
 //
 // Object creation
@@ -1619,7 +1683,7 @@ static const struct vnode_ops sfs_dirops = {
 	
 	ISDIR,   /* read */
 	ISDIR,   /* readlink */
-	UNIMP,   /* getdirentry */
+	sfs_getdirentry,   /* getdirentry */
 	ISDIR,   /* write */
 	sfs_ioctl,
 	sfs_stat,
