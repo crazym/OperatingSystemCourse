@@ -106,7 +106,6 @@ file_close(int fd)
 		vfs_close(fhandle->fvnode);
 		lock_release(fhandle->flock);
 		lock_destroy(fhandle->flock);
-		//???kfree(fhandle->fname); and ref_count
 		kfree(fhandle);
 	} else{
 		fhandle->ref_count--;
@@ -142,11 +141,11 @@ filetable_init(void)
 		return ENOMEM;
 	}
 
-	/*
-	for (fd = 0; fd < __OPEN_MAX; fd++) {
+	
+	for (fd = 3; fd < __OPEN_MAX; fd++) {
         filetable->file_handles[fd] = NULL;
     }
- 	*/
+ 	
 
 	curthread->t_filetable = filetable;
 	
@@ -187,7 +186,7 @@ filetable_destroy(struct filetable *ft)
 {
         int fd;
         int close_f;
-        // if ft != NULL ??
+        
         if (ft == NULL){
         	kprintf("Filetable does not exists\n");
         } else{
