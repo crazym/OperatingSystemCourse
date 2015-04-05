@@ -294,6 +294,7 @@ sys_write(int fd, userptr_t buf, size_t len, int *retval)
      * minus how much is left in it.
      */
     *retval = len - user_uio.uio_resid;
+	lock_release(of->flock);
 
     return 0;
 }
@@ -349,6 +350,7 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 
 	// invalid if resulting seek position is negative
 	if (new_pos < 0){
+		lock_release(of->flock);
 		return EINVAL;
 	}
 
@@ -369,14 +371,27 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 
 /*
  * sys_chdir
- * 
+ * The current directory of the current process is set to the directory named by pathname.
  */
 int
 sys_chdir(userptr_t path)
 {
-        (void)path;
+	int result;
+	char *kpath;
+	size_t len;
+	
+	// copy path from userspace to kernel address kpath
+	result = copyinstr(path, kpath, __PATH_MAX, &len);
+	if (result){
+		return result;
+	}
 
-	return EUNIMP;
+	result = vfs_chdir(kpath);
+	if (result){
+		return result;
+	}
+
+	return 0;
 }
 
 /*
@@ -386,11 +401,25 @@ sys_chdir(userptr_t path)
 int
 sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 {
-        (void)buf;
-        (void)buflen;
-        (void)retval;
 
-	return EUNIMP;
+    struct uio user_uio;
+    struct iovec user_iov;
+    int result;
+
+	/* set up a uio with the buffer, its size */
+	mk_useruio(&user_iov, &user_uio, buf, buflen, 0, UIO_READ);
+
+	result = vfs_getcwd(&user_uio);
+	if (result) {
+		return result;
+	}
+
+	/*
+	 * The amount read is the size of the buffer originally, minus
+	 * how much is left in it.
+	 */
+	*retval = buflen - user_uio.uio_resid;
+	return 0;
 }
 
 /*
@@ -399,24 +428,109 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 int
 sys_fstat(int fd, userptr_t statptr)
 {
-        (void)fd;
-        (void)statptr;
+	struct stat *vn_stat;	
+	struct uio user_uio;
+	struct iovec user_iov;
+	int result;
+	int offset = 0;
+	struct file_handle *of;
 
-	return EUNIMP;
+	if (fd < 0 || fd >= __OPEN_MAX){
+		return EBADF;
+	}
+
+	// get the file handle the fd refers to
+	of = curthread->t_filetable->file_handles[fd];
+	if (of == NULL){
+		// error if no file opened at fd in the file table
+		return EBADF;
+	}
+
+	// check if the vnode associated with the opened file is valid
+	if (of->fvnode == NULL){
+		// error if no such device
+		return ENODEV;
+	}
+
+	lock_acquire(of->flock);
+
+	/* set up a uio with the statptr buffer, its size */
+	mk_useruio(&user_iov, &user_uio, statptr, sizeof(struct stat), offset, UIO_READ);
+
+	// get the stat struct from the vnode (in kernel)
+	result = VOP_STAT(of->fvnode, vn_stat);
+	if (result){
+		lock_release(of->flock);
+		return result;
+	}
+    
+    // copy stat from kernel buffer vn_stat to the data region pointed to by uio
+    if ((result = uiomove(vn_stat, sizeof(struct stat), &user_uio))) {
+        // Release the lock
+        lock_release(of->flock);
+        return result;
+    }
+
+	lock_release(of->flock);
+
+    return 0;
+    
 }
 
 /*
  * sys_getdirentry
+ * 
+ * getdirentry retrieves the next filename from a directory referred to by the 
+ * file handle fd. 
+ * The name is stored in buf, an area of size buflen.
+ * The length of of the name actually found is returned.
  */
 int
 sys_getdirentry(int fd, userptr_t buf, size_t buflen, int *retval)
 {
-        (void)fd;
-        (void)buf;
-	(void)buflen;
-        (void)retval;
+	struct uio user_uio;
+	struct iovec user_iov;
+	int result;
+	int offset = 0;
+	struct file_handle *of;
 
-	return EUNIMP;
+	if (fd < 0 || fd >= __OPEN_MAX){
+		return EBADF;
+	}
+
+	// get the file handle the fd refers to
+	of = curthread->t_filetable->file_handles[fd];
+	if (of == NULL){
+		// error if no file opened at fd in the file table
+		return EBADF;
+	}
+
+	lock_acquire(of->flock);
+
+	// current position for a directory is the next slot to consider
+	// rather than byte offset (for a normal file)
+	offset = of->cur_po; 
+	mk_useruio(&user_iov, &user_uio, buf, buflen, offset, UIO_READ);
+
+	result = VOP_GETDIRENTRY(of->fvnode, &user_uio);
+	if (result){
+		lock_release(of->flock);
+		return result;
+	}
+
+	// new offset for the dir is the next slot to consider
+	of->cur_po = user_uio.uio_offset;
+
+	/*
+	 * The amount read is the size of the buffer originally, minus
+	 * how much is left in it.
+	 */
+	*retval = buflen - user_uio.uio_resid;
+
+	//release the lock
+	lock_release(of->flock);
+    return 0;
+    
 }
 
 /* END A3 SETUP */
