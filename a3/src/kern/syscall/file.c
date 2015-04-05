@@ -142,7 +142,7 @@ filetable_init(void)
 	}
 
 	
-	for (fd = 3; fd < __OPEN_MAX; fd++) {
+	for (int fd = 3; fd < __OPEN_MAX; fd++) {
         filetable->file_handles[fd] = NULL;
     }
  	
