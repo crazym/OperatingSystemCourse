@@ -9,14 +9,14 @@
 
 #include <kern/limits.h>
 
-struct vnode;
+//struct vnode;
 
 /**
  * file table handles
  */
 struct file_handle {
-	char *fname;
-	struct vnode* fvnode;
+	//char *fname;
+	struct vnode *fvnode;
 	off_t cur_po;
 	int fflag; 
     int ref_count;

@@ -49,7 +49,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
     	return ENOMEM;
     }
 
-    strcpy(fhandle->fname, filename);
+    //strcpy(fhandle->fname, filename);
 
     fhandle->fvnode = vn;
 	fhandle->cur_po = 0;
@@ -65,7 +65,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 
 	KASSERT(curthread->t_filetable!=NULL);
 	//add file handle to file table
-	for (i=3; i<__OPEN_MAX; i++){
+	for (i=0; i<__OPEN_MAX; i++){
 		if (curthread->t_filetable->file_handles[i] == NULL){
 			curthread->t_filetable->file_handles[i] = fhandle;
 			*retfd = i;
@@ -138,20 +138,18 @@ file_close(int fd)
 int
 filetable_init(void)
 {
-	struct filetable *filetable = kmalloc(sizeof(struct filetable));
-	if (filetable == NULL){
+	struct filetable *ft = kmalloc(sizeof(struct filetable));
+	
+	if (ft == NULL){
 		return ENOMEM;
 	}
 
-	
-	for (int fd = 3; fd < __OPEN_MAX; fd++) {
-        filetable->file_handles[fd] = NULL;
+	for (int fd=0; fd<__OPEN_MAX; fd++) {
+        ft->file_handles[fd] = NULL;
     }
  	
-
-	curthread->t_filetable = filetable;
+	curthread->t_filetable = ft;
 	
-
     char path[5];
     int fd;
     int open_f;
@@ -226,6 +224,7 @@ file_lookup(int fd, struct file_handle **fhandle)
 		return EBADF;
 	}
 
+	KASSERT(curthread->t_filetable!=NULL);
 	*fhandle = curthread->t_filetable->file_handles[fd];
 	if (fhandle == NULL) {
 		// no open file in the file table at fd
