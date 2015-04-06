@@ -1,0 +1,28 @@
+A3 Design Document
+
+Open File Table & Fork:
+--Add data here--
+
+sfs_getdirentry:
+First we assert that the read/write mode of uio is set to UIO_READ.
+Then we acquire lock...
+We check the file type of the inode. If it is not SFS_TYPE_DIR, then we return ENOTDIR.
+Next we get the total number of directory entries, via sfs_dir_nentries.
+We consider uio_offset to be the slot that we wish to examine next. Hence we loop from slot uio_offset to the very last slot to read entries via sfs_readdir().
+If the entry is not empty, then we copy its name(sfd_name) onto the uio, and update the uio_offset to the follow slot to examine in the future.
+If the entry is empty, then we skip it and look in the next slot.
+If there are no entries found, ie. we've searched through all entries, then we simply return. The syscall will know that nothing was written and return the correct value (length 0).
+
+
+Storing data in inode space:
+First, in struct sfs_inode, we added a char array (sfi_inlinedata) of size 448 bytes (SFS_INLINED_BYTES) to store data.
+448 bytes because we have 512-60=452 bytes of wasted space to make use of, and we want the useful space to be a multiple of struct sfs_dir, which is 64. 452 % 64 = 4, giving us now 4 bytes of waste space, and 448 bytes of usable space.
+
+Since we now store the first 448 bytes of data in the inodes, we need to modify how we do io in sfs_io.
+If the uio_offset is within the first 448 bytes, then we would need to read/write data to sfi_inlinedata.
+And if we wrote any data there, we need to set the inode to dirty.
+
+Subsequently, whenever uio_offset is used to determine block# or block alignment, we have to subtract uio_offset by SFS_INLINED_BYTES. Hence we have to modify lines in sfs_partialio(), sfs_blockio(), sfs_truncate(). 
+
+Biggest challenge:
+Try to get psh working?
