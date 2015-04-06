@@ -63,6 +63,7 @@ file_open(char *filename, int flags, int mode, int *retfd)
 		return ENOMEM;
 	}
 
+	KASSERT(curthread->t_filetable!=NULL);
 	//add file handle to file table
 	for (i=3; i<__OPEN_MAX; i++){
 		if (curthread->t_filetable->file_handles[i] == NULL){
@@ -94,6 +95,7 @@ file_close(int fd)
 {
 	struct file_handle *fhandle;
 
+	KASSERT(curthread->t_filetable!=NULL);
 	fhandle = curthread->t_filetable->file_handles[fd];
 	if (fd < 3 || fd >= __OPEN_MAX  || fhandle == NULL){
 		return EBADF;

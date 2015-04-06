@@ -131,6 +131,7 @@ sys_dup2(int oldfd, int newfd, int *retval)
 		return EBADF;
 	}
 
+	KASSERT(curthread->t_filetable!=NULL);
 	of = curthread->t_filetable->file_handles[oldfd];
 	if (of == NULL) {
 		// no open file in the file table at oldfd
@@ -184,6 +185,7 @@ sys_read(int fd, userptr_t buf, size_t size, int *retval)
 		return EBADF;
 	}
 
+	KASSERT(curthread->t_filetable!=NULL);
 	// get the file handle the fd refers to
 	of = curthread->t_filetable->file_handles[fd];
 	if (of == NULL){
@@ -261,6 +263,7 @@ sys_write(int fd, userptr_t buf, size_t len, int *retval)
 		return EBADF;
 	}
 
+	KASSERT(curthread->t_filetable!=NULL);
 	// get the file handle the fd refers to
 	of = curthread->t_filetable->file_handles[fd];
 	if (of == NULL){
@@ -318,6 +321,8 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 	if (fd >=0 && fd < 3){
 		return ESPIPE;
 	}
+
+	KASSERT(curthread->t_filetable!=NULL);
 
 	// get the file handle the fd refers to
 	of = curthread->t_filetable->file_handles[fd];
@@ -439,6 +444,8 @@ sys_fstat(int fd, userptr_t statptr)
 		return EBADF;
 	}
 
+	KASSERT(curthread->t_filetable!=NULL);
+
 	// get the file handle the fd refers to
 	of = curthread->t_filetable->file_handles[fd];
 	if (of == NULL){
@@ -497,6 +504,8 @@ sys_getdirentry(int fd, userptr_t buf, size_t buflen, int *retval)
 	if (fd < 0 || fd >= __OPEN_MAX){
 		return EBADF;
 	}
+
+	KASSERT(curthread->t_filetable!=NULL);
 
 	// get the file handle the fd refers to
 	of = curthread->t_filetable->file_handles[fd];
