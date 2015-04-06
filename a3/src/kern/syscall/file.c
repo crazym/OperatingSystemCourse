@@ -213,5 +213,47 @@ filetable_destroy(struct filetable *ft)
  * the current file position) associated with that open file.
  */
 
+/*
+ * file_lookup 
+ * reutrn the file handle at the given fd.
+ *
+ */
+int
+file_lookup(int fd, struct file_handle **fhandle)
+{
+
+	if (fd < 0 || fd >= __OPEN_MAX){
+		return EBADF;
+	}
+
+	*fhandle = curthread->t_filetable->file_handles[fd];
+	if (fhandle == NULL) {
+		// no open file in the file table at fd
+		return EBADF; 
+	}
+
+	return 0;
+}
+
+int
+file_set(int fd, struct file_handle *fhandle)
+{
+	//fail is there is no filetable associated
+	KASSERT(curthread->t_filetable!=NULL);
+
+	if (fd < 0 || fd >= __OPEN_MAX){
+		return EBADF;
+	}
+
+	// close it if there exists an open file in the file table at fd
+	if (curthread->t_filetable->file_handles[fd] != NULL) {
+		file_close(fd);
+	}
+	// set fd points to the new file
+	curthread->t_filetable->file_handles[fd] = fhandle;
+
+
+	return 0;
+}
 
 /* END A3 SETUP */

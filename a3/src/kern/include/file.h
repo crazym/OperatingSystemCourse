@@ -48,7 +48,8 @@ int file_close(int fd);
  * the filetable to help implement some of the filetable-related
  * system calls.
  */
-
+int file_lookup(int fd, struct file_handle **fhandle);
+int file_set(int fd, struct file_handle *fhandle);
 #endif /* _FILE_H_ */
 
 /* END A3 SETUP */
