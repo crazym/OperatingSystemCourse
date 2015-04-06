@@ -138,6 +138,8 @@ file_close(int fd)
 int
 filetable_init(void)
 {
+	KASSERT(curthread->t_filetable != NULL);
+
 	struct filetable *filetable = kmalloc(sizeof(struct filetable));
 	if (filetable == NULL){
 		return ENOMEM;
