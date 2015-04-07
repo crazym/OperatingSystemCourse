@@ -452,7 +452,7 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 int
 sys_fstat(int fd, userptr_t statptr)
 {
-	struct stat *vn_stat;	
+	struct stat vn_stat;
 	struct uio user_uio;
 	struct iovec user_iov;
 	int result;
@@ -486,14 +486,14 @@ sys_fstat(int fd, userptr_t statptr)
 	mk_useruio(&user_iov, &user_uio, statptr, sizeof(struct stat), offset, UIO_READ);
 
 	// get the stat struct from the vnode (in kernel)
-	result = VOP_STAT(fhandle->fvnode, vn_stat);
+	result = VOP_STAT(fhandle->fvnode, &vn_stat);
 	if (result){
 		lock_release(fhandle->flock);
 		return result;
 	}
     
     // copy stat from kernel buffer vn_stat to the data region pointed to by uio
-    if ((result = uiomove(vn_stat, sizeof(struct stat), &user_uio))) {
+    if ((result = uiomove(&vn_stat, sizeof(struct stat), &user_uio))) {
         // Release the lock
         lock_release(fhandle->flock);
         return result;
