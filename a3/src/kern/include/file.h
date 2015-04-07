@@ -9,7 +9,20 @@
 
 #include <kern/limits.h>
 
-struct vnode;
+//struct vnode;
+
+/**
+ * file table handles
+ */
+struct file_handle {
+	//char *fname;
+	struct vnode *fvnode;
+	off_t cur_po;
+	int fflag; 
+    int ref_count;
+	struct lock *flock; 
+    
+};
 
 /*
  * filetable struct
@@ -18,7 +31,7 @@ struct vnode;
  * array of ints is just intended to make the compiler happy.
  */
 struct filetable {
-	int changeme[__OPEN_MAX]; /* dummy type */
+	struct file_handle* file_handles[__OPEN_MAX]; /* dummy type */
 };
 
 /* these all have an implicit arg of the curthread's filetable */
@@ -35,7 +48,8 @@ int file_close(int fd);
  * the filetable to help implement some of the filetable-related
  * system calls.
  */
-
+int file_lookup(int fd, struct file_handle **fhandle);
+int file_set(int fd, struct file_handle *fhandle);
 #endif /* _FILE_H_ */
 
 /* END A3 SETUP */

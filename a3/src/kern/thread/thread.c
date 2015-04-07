@@ -559,6 +559,60 @@ thread_fork(const char *name,
 	 * Now we clone various fields from the parent thread.
 	 */
 
+	/*copy filetable*/
+	if(curthread->t_filetable == NULL) {
+		result = filetable_init();
+		if (result){
+			return result;
+		}
+	}
+	
+	newthread->t_filetable = kmalloc(sizeof(struct filetable));
+	if (newthread->t_filetable == NULL){
+            return ENOMEM;
+    }
+	
+	for (int fd = 0; fd < __OPEN_MAX; fd++) {
+
+		
+		newthread->t_filetable->file_handles[fd] = 
+			curthread->t_filetable->file_handles[fd];
+
+		if (curthread->t_filetable->file_handles[fd] != NULL){
+
+			lock_acquire(curthread->t_filetable->file_handles[fd]->flock);
+			
+			curthread->t_filetable->file_handles[fd]->ref_count++;
+
+			lock_release(curthread->t_filetable->file_handles[fd]->flock);
+		}
+	} 
+
+	// if(curthread->t_filetable != NULL) {
+	// 	if(newthread->t_filetable == NULL) {
+	// 		newthread->t_filetable = kmalloc(sizeof(struct filetable));
+	// 		if (newthread->t_filetable == NULL){
+ //                return ENOMEM;
+ //            }
+	// 	}
+
+	// 	for (int fd = 0; fd < __OPEN_MAX; fd++) {
+
+			
+	// 		newthread->t_filetable->file_handles[fd] = 
+	// 			curthread->t_filetable->file_handles[fd];
+
+	// 		lock_acquire(curthread->t_filetable->file_handles[fd]->flock);
+			
+	// 		curthread->t_filetable->file_handles[fd]->ref_count++;
+
+	// 		lock_release(curthread->t_filetable->file_handles[fd]->flock);
+	// 	}
+	// } else {
+ //        newthread->t_filetable = NULL;
+ //    }
+
+
 	/* Thread subsystem fields */
 	newthread->t_cpu = curthread->t_cpu;
 

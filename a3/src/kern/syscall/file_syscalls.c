@@ -22,6 +22,7 @@
 #include <copyinout.h>
 #include <synch.h>
 #include <file.h>
+#include <kern/seek.h> // seek type in sys_lseek()
 
 /* This special-case global variable for the console vnode should be deleted 
  * when you have a proper open file table implementation.
@@ -36,25 +37,25 @@ struct vnode *cons_vnode=NULL;
  */
 void dumb_consoleIO_bootstrap()
 {
-  int result;
-  char path[5];
+	int result;
+	char path[5];
 
-  /* The path passed to vfs_open must be mutable.
-   * vfs_open may modify it.
-   */
+	/* The path passed to vfs_open must be mutable.
+	* vfs_open may modify it.
+	*/
 
-  strcpy(path, "con:");
-  result = vfs_open(path, O_RDWR, 0, &cons_vnode);
+	strcpy(path, "con:");
+	result = vfs_open(path, O_RDWR, 0, &cons_vnode);
 
-  if (result) {
-    /* Tough one... if there's no console, there's not
-     * much point printing a warning...
-     * but maybe the bootstrap was just called in the wrong place
-     */
-    kprintf("Warning: could not initialize console vnode\n");
-    kprintf("User programs will not be able to read/write\n");
-    cons_vnode = NULL;
-  }
+	if (result) {
+	/* Tough one... if there's no console, there's not
+	 * much point printing a warning...
+	 * but maybe the bootstrap was just called in the wrong place
+	 */
+	kprintf("Warning: could not initialize console vnode\n");
+	kprintf("User programs will not be able to read/write\n");
+	cons_vnode = NULL;
+	}
 }
 
 /*
@@ -91,11 +92,13 @@ sys_open(userptr_t filename, int flags, int mode, int *retval)
 	int result;
 
 	if ( (fname = (char *)kmalloc(__PATH_MAX)) == NULL) {
+		*retval = -1; // need this??
 		return ENOMEM;
 	}
 
 	result = copyinstr(filename, fname, __PATH_MAX, NULL);
 	if (result) {
+		*retval = -1; // need this??
 		kfree(fname);
 		return result;
 	}
@@ -122,18 +125,49 @@ sys_close(int fd)
 int
 sys_dup2(int oldfd, int newfd, int *retval)
 {
-        (void)oldfd;
-        (void)newfd;
-        (void)retval;
+	struct file_handle *fhandle;
+	// int result;
+	//invalid fds
+	if (oldfd < 0 || newfd < 0 || newfd >= __OPEN_MAX || oldfd >= __OPEN_MAX){
+		return EBADF;
+	}
 
-	return EUNIMP;
+	fhandle = curthread->t_filetable->file_handles[oldfd];
+	if (fhandle == NULL) {
+		// no open file in the file table at oldfd
+		return EBADF; 
+	}
+
+
+	// result = file_lookup(oldfd, &fhandle);
+	// if (result){
+	// 	return result;
+	// }
+
+	// if there is an opened file at newfd, close it
+	if (curthread->t_filetable->file_handles[newfd] != NULL){
+		file_close(newfd);
+	}
+
+	curthread->t_filetable->file_handles[newfd] = fhandle;
+	// result = file_set(newfd, fhandle);
+	// if (result){
+	// 	return result;
+	// }
+
+	lock_acquire(fhandle->flock);
+	fhandle->ref_count++;
+	lock_release(fhandle->flock);
+
+	*retval = newfd;
+	return 0;
 }
 
 /*
  * sys_read
  * calls VOP_READ.
  * 
- * A3: This is the "dumb" implementation of sys_write:
+ * A3: This is the "dumb" implementation of sys_read:
  * it only deals with file descriptors 1 and 2, and 
  * assumes they are permanently associated with the 
  * console vnode (which must have been previously initialized).
@@ -154,34 +188,56 @@ sys_read(int fd, userptr_t buf, size_t size, int *retval)
 	struct iovec user_iov;
 	int result;
 	int offset = 0;
+	struct file_handle *fhandle;
 
-	/* Make sure we were able to init the cons_vnode */
-	if (cons_vnode == NULL) {
-	  return ENODEV;
+
+	// if (fd < 0 || fd >= __OPEN_MAX){
+	// 	return EBADF;
+	// }
+
+	// // get the file handle the fd refers to
+	// fhandle = curthread->t_filetable->file_handles[fd];
+	// if (fhandle == NULL){
+	// 	// error if no file opened at fd in the file table
+	// 	return EBADF;
+	// }
+	result = file_lookup(fd, &fhandle);
+	if (result){
+		return result;
+	}
+	// check if the vnode associated with the opened file is valid
+	if (fhandle->fvnode == NULL){
+		// error if no such device
+		return ENODEV;
 	}
 
-	/* better be a valid file descriptor */
-	/* Right now, only stdin (0), stdout (1) and stderr (2)
-	 * are supported, and they can't be redirected to a file
-	 */
-	if (fd < 0 || fd > 2) {
-	  return EBADF;
-	}
+	lock_acquire(fhandle->flock);
 
+	// get the current position(offset) in the opened file
+	offset = fhandle->cur_po; 
 	/* set up a uio with the buffer, its size, and the current offset */
 	mk_useruio(&user_iov, &user_uio, buf, size, offset, UIO_READ);
 
 	/* does the read */
-	result = VOP_READ(cons_vnode, &user_uio);
+	result = VOP_READ(fhandle->fvnode, &user_uio);
 	if (result) {
+		//release the lock
+		lock_release(fhandle->flock);
 		return result;
 	}
+
+	// advance the current offset
+	// ??????? should we check if the advanced offset exceeds the file size???????
+	fhandle->cur_po += size;
 
 	/*
 	 * The amount read is the size of the buffer originally, minus
 	 * how much is left in it.
 	 */
 	*retval = size - user_uio.uio_resid;
+
+	//release the lock
+	lock_release(fhandle->flock);
 
 	return 0;
 }
@@ -208,39 +264,58 @@ sys_read(int fd, userptr_t buf, size_t size, int *retval)
 int
 sys_write(int fd, userptr_t buf, size_t len, int *retval) 
 {
-        struct uio user_uio;
-        struct iovec user_iov;
-        int result;
-        int offset = 0;
+    struct uio user_uio;
+    struct iovec user_iov;
+    int result;
+    int offset = 0;
+	struct file_handle *fhandle;
 
-        /* Make sure we were able to init the cons_vnode */
-        if (cons_vnode == NULL) {
-          return ENODEV;
-        }
 
-        /* Right now, only stdin (0), stdout (1) and stderr (2)
-         * are supported, and they can't be redirected to a file
-         */
-        if (fd < 0 || fd > 2) {
-          return EBADF;
-        }
+	// if (fd < 0 || fd >= __OPEN_MAX){
+	// 	return EBADF;
+	// }
 
-        /* set up a uio with the buffer, its size, and the current offset */
-        mk_useruio(&user_iov, &user_uio, buf, len, offset, UIO_WRITE);
 
-        /* does the write */
-        result = VOP_WRITE(cons_vnode, &user_uio);
-        if (result) {
-                return result;
-        }
+	// // get the file handle the fd refers to
+	// of = curthread->t_filetable->file_handles[fd];
+	// if (of == NULL){
+	// 	// error if no file opened at fd in the file table
+	// 	return EBADF;
+	// }
+	result = file_lookup(fd, &fhandle);
+	if (result){
+		return result;
+	}
 
-        /*
-         * the amount written is the size of the buffer originally,
-         * minus how much is left in it.
-         */
-        *retval = len - user_uio.uio_resid;
+	// check if the vnode associated with the opened file is valid
+	if (fhandle->fvnode == NULL){
+		// error if no such device
+		return ENODEV;
+	}
 
-        return 0;
+	lock_acquire(fhandle->flock);
+	// get the current position(offset) in the opened file
+	offset = fhandle->cur_po; 		
+    /* set up a uio with the buffer, its size, and the current offset */
+    mk_useruio(&user_iov, &user_uio, buf, len, offset, UIO_WRITE);
+
+    /* does the write */
+    result = VOP_WRITE(fhandle->fvnode, &user_uio);
+    if (result) {
+		//release the lock
+		lock_release(fhandle->flock);
+		return result;
+    }
+    //advance current position by the number of bytes written
+    fhandle->cur_po += len;
+    /*
+     * the amount written is the size of the buffer originally,
+     * minus how much is left in it.
+     */
+    *retval = len - user_uio.uio_resid;
+	lock_release(fhandle->flock);
+
+    return 0;
 }
 
 /*
@@ -250,12 +325,82 @@ sys_write(int fd, userptr_t buf, size_t len, int *retval)
 int
 sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 {
-        (void)fd;
-        (void)offset;
-        (void)whence;
-        (void)retval;
+	struct stat *vn_stat;
+	int result;
+	off_t new_pos;
+	struct file_handle *fhandle;
+	// seek on invalid fds will fail
+	// if (fd < 0 || fd >= __OPEN_MAX){
+	// 	return EBADF;
+	// }
+	//seek on console device is not supported
 
-	return EUNIMP;
+
+	// if (fd >=0 && fd < 3){
+	// 	return ESPIPE;
+	// }
+
+
+	result = file_lookup(fd, &fhandle);
+	if (result){
+		return result;
+	}
+	// get the file handle the fd refers to
+	// fhandle = curthread->t_filetable->file_handles[fd];
+	// if (of == NULL){
+	// 	// error if no file opened at fd in the file table
+	// 	return EBADF;
+	// }
+
+	lock_acquire(fhandle->flock);
+
+	if (fhandle->fvnode->vn_fs==NULL) {
+		lock_release(fhandle->flock);
+		return ESPIPE;
+	}
+
+	switch (whence) {
+		case SEEK_SET:
+			new_pos = offset;
+			break;
+		case SEEK_CUR:
+			new_pos = fhandle->cur_po + offset;
+			break;
+		case SEEK_END:
+			result = VOP_STAT(fhandle->fvnode, vn_stat);
+			if (result){
+				lock_release(fhandle->flock);
+				return result;
+			}
+			new_pos = vn_stat->st_size + offset;
+			break;
+		default:
+			//whence mode is invalid
+			lock_release(fhandle->flock);
+			return EINVAL;
+	}
+
+	// invalid if resulting seek position is negative
+	if (new_pos < 0){
+		lock_release(fhandle->flock);
+		return EINVAL;
+	}
+
+	//check if the new seek position is legal
+    result = VOP_TRYSEEK(fhandle->fvnode, new_pos);
+    if (result) {
+        lock_release(fhandle->flock);
+        return result;
+    }
+
+	// set the new seek position to the vnode
+	fhandle->cur_po = new_pos;
+	
+	lock_release(fhandle->flock);
+
+	*retval = new_pos;
+
+	return 0;
 }
 
 
@@ -263,14 +408,27 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 
 /*
  * sys_chdir
- * 
+ * The current directory of the current process is set to the directory named by pathname.
  */
 int
 sys_chdir(userptr_t path)
 {
-        (void)path;
+	int result;
+	char kpath[__PATH_MAX];
+	size_t len;
+	
+	// copy path from userspace to kernel address kpath
+	result = copyinstr(path, kpath, __PATH_MAX, &len);
+	if (result){
+		return result;
+	}
 
-	return EUNIMP;
+	result = vfs_chdir(kpath);
+	if (result){
+		return result;
+	}
+
+	return 0;
 }
 
 /*
@@ -280,11 +438,29 @@ sys_chdir(userptr_t path)
 int
 sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 {
-        (void)buf;
-        (void)buflen;
-        (void)retval;
 
-	return EUNIMP;
+    struct uio user_uio;
+    struct iovec user_iov;
+    int result;
+
+	/* set up a uio with the buffer, its size */
+	mk_useruio(&user_iov, &user_uio, buf, buflen, 0, UIO_READ);
+
+	result = vfs_getcwd(&user_uio);
+	if (result) {
+		return result;
+	}
+
+	// result = uiomove(buf, buflen, &user_uio);
+	// if (result) {
+	// 	return result;
+	// }
+	/*
+	 * The amount read is the size of the buffer originally, minus
+	 * how much is left in it.
+	 */
+	*retval = buflen - user_uio.uio_resid;
+	return 0;
 }
 
 /*
@@ -293,24 +469,117 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 int
 sys_fstat(int fd, userptr_t statptr)
 {
-        (void)fd;
-        (void)statptr;
+	struct stat vn_stat;
+	struct uio user_uio;
+	struct iovec user_iov;
+	int result;
+	int offset = 0;
+	struct file_handle *fhandle;
 
-	return EUNIMP;
+	// if (fd < 0 || fd >= __OPEN_MAX){
+	// 	return EBADF;
+	// }
+
+	// // get the file handle the fd refers to
+	// of = curthread->t_filetable->file_handles[fd];
+	// if (of == NULL){
+	// 	// error if no file opened at fd in the file table
+	// 	return EBADF;
+	// }
+	result = file_lookup(fd, &fhandle);
+	if (result){
+		return result;
+	}
+
+	// check if the vnode associated with the opened file is valid
+	if (fhandle->fvnode == NULL){
+		// error if no such device
+		return ENODEV;
+	}
+
+	lock_acquire(fhandle->flock);
+
+	/* set up a uio with the statptr buffer, its size */
+	mk_useruio(&user_iov, &user_uio, statptr, sizeof(struct stat), offset, UIO_READ);
+
+	// get the stat struct from the vnode (in kernel)
+	result = VOP_STAT(fhandle->fvnode, &vn_stat);
+	if (result){
+		lock_release(fhandle->flock);
+		return result;
+	}
+    
+    // copy stat from kernel buffer vn_stat to the data region pointed to by uio
+    if ((result = uiomove(&vn_stat, sizeof(struct stat), &user_uio))) {
+        // Release the lock
+        lock_release(fhandle->flock);
+        return result;
+    }
+
+	lock_release(fhandle->flock);
+
+    return 0;
+    
 }
 
 /*
  * sys_getdirentry
+ * 
+ * getdirentry retrieves the next filename from a directory referred to by the 
+ * file handle fd. 
+ * The name is stored in buf, an area of size buflen.
+ * The length of of the name actually found is returned.
  */
 int
 sys_getdirentry(int fd, userptr_t buf, size_t buflen, int *retval)
 {
-        (void)fd;
-        (void)buf;
-	(void)buflen;
-        (void)retval;
+	struct uio user_uio;
+	struct iovec user_iov;
+	int result;
+	int offset = 0;
+	struct file_handle *fhandle;
 
-	return EUNIMP;
+	// if (fd < 0 || fd >= __OPEN_MAX){
+	// 	return EBADF;
+	// }
+
+	// // get the file handle the fd refers to
+	// of = curthread->t_filetable->file_handles[fd];
+	// if (of == NULL){
+	// 	// error if no file opened at fd in the file table
+	// 	return EBADF;
+	// }
+	result = file_lookup(fd, &fhandle);
+	if (result){
+		return result;
+	}
+
+	lock_acquire(fhandle->flock);
+
+	// current position for a directory is the next slot to consider
+	// rather than byte offset (for a normal file)
+	offset = fhandle->cur_po; 
+	mk_useruio(&user_iov, &user_uio, buf, buflen, offset, UIO_READ);
+
+	result = VOP_GETDIRENTRY(fhandle->fvnode, &user_uio);
+	if (result){
+		lock_release(fhandle->flock);
+		return result;
+	}
+
+	// new offset for the dir is the next slot to consider
+	fhandle->cur_po = user_uio.uio_offset;
+
+	/*
+	 * The amount read is the size of the buffer originally, minus
+	 * how much is left in it.
+	 */
+	*retval = buflen - user_uio.uio_resid;
+
+	//release the lock
+	lock_release(fhandle->flock);
+    return 0;
+    
 }
 
 /* END A3 SETUP */
