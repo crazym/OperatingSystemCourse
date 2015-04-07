@@ -401,7 +401,7 @@ int
 sys_chdir(userptr_t path)
 {
 	int result;
-	char *kpath;
+	char kpath[__PATH_MAX];
 	size_t len;
 	
 	// copy path from userspace to kernel address kpath
@@ -438,6 +438,10 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 		return result;
 	}
 
+	// result = uiomove(buf, buflen, &user_uio);
+	// if (result) {
+	// 	return result;
+	// }
 	/*
 	 * The amount read is the size of the buffer originally, minus
 	 * how much is left in it.
@@ -452,7 +456,7 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 int
 sys_fstat(int fd, userptr_t statptr)
 {
-	struct stat *vn_stat;	
+	struct stat vn_stat;
 	struct uio user_uio;
 	struct iovec user_iov;
 	int result;
@@ -486,14 +490,14 @@ sys_fstat(int fd, userptr_t statptr)
 	mk_useruio(&user_iov, &user_uio, statptr, sizeof(struct stat), offset, UIO_READ);
 
 	// get the stat struct from the vnode (in kernel)
-	result = VOP_STAT(fhandle->fvnode, vn_stat);
+	result = VOP_STAT(fhandle->fvnode, &vn_stat);
 	if (result){
 		lock_release(fhandle->flock);
 		return result;
 	}
     
     // copy stat from kernel buffer vn_stat to the data region pointed to by uio
-    if ((result = uiomove(vn_stat, sizeof(struct stat), &user_uio))) {
+    if ((result = uiomove(&vn_stat, sizeof(struct stat), &user_uio))) {
         // Release the lock
         lock_release(fhandle->flock);
         return result;
