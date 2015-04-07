@@ -50,6 +50,7 @@
 #include <version.h>
 #include <pid.h> /* to bootstrap process ID system - New for ASST2 */
 #include "autoconf.h"  // for pseudoconfig
+#include <file.h>
 
 
 /*
@@ -135,7 +136,8 @@ boot(void)
 	 * come before additional cpus are brought online.
 	 */
 	pid_bootstrap(); 
-	dumb_consoleIO_bootstrap(); /* And initialize for user console IO */
+	//dumb_consoleIO_bootstrap(); /* And initialize for user console IO */
+	filetable_init();
 
 	thread_start_cpus();
 

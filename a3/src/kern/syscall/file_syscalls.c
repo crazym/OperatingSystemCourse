@@ -334,9 +334,11 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 	// 	return EBADF;
 	// }
 	//seek on console device is not supported
-	if (fd >=0 && fd < 3){
-		return ESPIPE;
-	}
+
+
+	// if (fd >=0 && fd < 3){
+	// 	return ESPIPE;
+	// }
 
 
 	result = file_lookup(fd, &fhandle);
@@ -351,6 +353,12 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 	// }
 
 	lock_acquire(fhandle->flock);
+
+	if (fhandle->fvnode->vn_fs==NULL) {
+		lock_release(fhandle->flock);
+		return ESPIPE;
+	}
+
 	switch (whence) {
 		case SEEK_SET:
 			new_pos = offset;
