@@ -226,7 +226,7 @@ file_lookup(int fd, struct file_handle **fhandle)
 
 	KASSERT(curthread->t_filetable!=NULL);
 	*fhandle = curthread->t_filetable->file_handles[fd];
-	if (fhandle == NULL) {
+	if (*fhandle == NULL) {
 		// no open file in the file table at fd
 		return EBADF; 
 	}
