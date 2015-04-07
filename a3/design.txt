@@ -1,7 +1,20 @@
 A3 Design Document
 
 Open File Table & Fork:
---Add data here--
+
+- struct filetable: contains a list of struct of file_handles and it has a fixed length __OPEN_MAX.
+
+- file_handle: 
+
+	- struct vnode *fvnode: global representation of the file.  
+ 
+	- off_t cur_po: current position of file.
+
+	- int fflag: indicate the access mode of file.
+
+    	- int ref_count: represents the number of file descriptor pointing to this entry.
+
+	- struct lock *flock: used for synchronization. It is used everytime there is change in cur_po and ref_count. 
 
 * sfs_getdirentry:
 First we assert that the read/write mode of uio is set to UIO_READ.
