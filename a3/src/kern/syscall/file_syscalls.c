@@ -401,7 +401,7 @@ int
 sys_chdir(userptr_t path)
 {
 	int result;
-	char *kpath;
+	char kpath[__PATH_MAX];
 	size_t len;
 	
 	// copy path from userspace to kernel address kpath
@@ -438,6 +438,10 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 		return result;
 	}
 
+	// result = uiomove(buf, buflen, &user_uio);
+	// if (result) {
+	// 	return result;
+	// }
 	/*
 	 * The amount read is the size of the buffer originally, minus
 	 * how much is left in it.
