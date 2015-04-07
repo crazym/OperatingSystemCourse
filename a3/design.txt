@@ -6,7 +6,7 @@ Open File Table & Fork:
 
 - file_handle: 
 
-	- struct vnode *fvnode: global representation of the file.  
+	- struct vnode *fvnode: abstract representation of the file.  
 	- off_t cur_po: current position of file.
 	- int fflag: indicate the access mode of file.
 	- int ref_count: represents the number of file descriptor pointing to this entry.
@@ -15,7 +15,18 @@ Open File Table & Fork:
 - fork():
 	file modified: thread_fork() in src/kern/thread/thread.c
 
-	The child thread should have a new file table, but with all fds pointing to the corresponding file_handle that parents points to; and the reference count (fd->refcount) for that filehandle is incremented by 1.
+	When a process forks, the child gets a shallow copy of the parent's file table.
+	i.e. Entries in child's open file table points to the same file_handles as in parent.
+	
+	This way, both parent and child share the same file handles and thus the same current file position (cur_po).
+
+	* If the child opens a file after the fork, that file exists only the the file table of the child. 
+
+	* ref_count is set to 1 when the file is first opened by a process, and will be incremented by 1 when we fork(i.e. child and parent are both pointing to the same file handle).
+
+	* If either process closes a file after the fork, the ref_count of the file is decremented by 1; the other process can still access the file. 
+	
+	* When the ref_count reaches 0, it means no process is referring to the file and we can then close it.
 
 
 * sfs_getdirentry:
@@ -43,6 +54,6 @@ Subsequently, whenever uio_offset is used to determine block# or block alignment
 
 
 * Biggest challenge:
+Design of the open file table to work with fork() and be synchronized;
 Try to get psh working;
 lseek error checking (badcalls on invalid devices, etc);
-
