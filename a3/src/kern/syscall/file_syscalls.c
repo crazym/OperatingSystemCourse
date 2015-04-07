@@ -138,22 +138,13 @@ sys_dup2(int oldfd, int newfd, int *retval)
 		return EBADF; 
 	}
 
-
-	// result = file_lookup(oldfd, &fhandle);
-	// if (result){
-	// 	return result;
-	// }
-
 	// if there is an opened file at newfd, close it
 	if (curthread->t_filetable->file_handles[newfd] != NULL){
 		file_close(newfd);
 	}
 
 	curthread->t_filetable->file_handles[newfd] = fhandle;
-	// result = file_set(newfd, fhandle);
-	// if (result){
-	// 	return result;
-	// }
+
 
 	lock_acquire(fhandle->flock);
 	fhandle->ref_count++;
@@ -190,17 +181,6 @@ sys_read(int fd, userptr_t buf, size_t size, int *retval)
 	int offset = 0;
 	struct file_handle *fhandle;
 
-
-	// if (fd < 0 || fd >= __OPEN_MAX){
-	// 	return EBADF;
-	// }
-
-	// // get the file handle the fd refers to
-	// fhandle = curthread->t_filetable->file_handles[fd];
-	// if (fhandle == NULL){
-	// 	// error if no file opened at fd in the file table
-	// 	return EBADF;
-	// }
 	result = file_lookup(fd, &fhandle);
 	if (result){
 		return result;
@@ -271,17 +251,6 @@ sys_write(int fd, userptr_t buf, size_t len, int *retval)
 	struct file_handle *fhandle;
 
 
-	// if (fd < 0 || fd >= __OPEN_MAX){
-	// 	return EBADF;
-	// }
-
-
-	// // get the file handle the fd refers to
-	// of = curthread->t_filetable->file_handles[fd];
-	// if (of == NULL){
-	// 	// error if no file opened at fd in the file table
-	// 	return EBADF;
-	// }
 	result = file_lookup(fd, &fhandle);
 	if (result){
 		return result;
@@ -329,28 +298,13 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 	int result;
 	off_t new_pos;
 	struct file_handle *fhandle;
-	// seek on invalid fds will fail
-	// if (fd < 0 || fd >= __OPEN_MAX){
-	// 	return EBADF;
-	// }
-	//seek on console device is not supported
-
-
-	// if (fd >=0 && fd < 3){
-	// 	return ESPIPE;
-	// }
 
 
 	result = file_lookup(fd, &fhandle);
 	if (result){
 		return result;
 	}
-	// get the file handle the fd refers to
-	// fhandle = curthread->t_filetable->file_handles[fd];
-	// if (of == NULL){
-	// 	// error if no file opened at fd in the file table
-	// 	return EBADF;
-	// }
+
 
 	lock_acquire(fhandle->flock);
 
@@ -451,10 +405,7 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 		return result;
 	}
 
-	// result = uiomove(buf, buflen, &user_uio);
-	// if (result) {
-	// 	return result;
-	// }
+
 	/*
 	 * The amount read is the size of the buffer originally, minus
 	 * how much is left in it.
@@ -476,16 +427,6 @@ sys_fstat(int fd, userptr_t statptr)
 	int offset = 0;
 	struct file_handle *fhandle;
 
-	// if (fd < 0 || fd >= __OPEN_MAX){
-	// 	return EBADF;
-	// }
-
-	// // get the file handle the fd refers to
-	// of = curthread->t_filetable->file_handles[fd];
-	// if (of == NULL){
-	// 	// error if no file opened at fd in the file table
-	// 	return EBADF;
-	// }
 	result = file_lookup(fd, &fhandle);
 	if (result){
 		return result;
@@ -539,16 +480,7 @@ sys_getdirentry(int fd, userptr_t buf, size_t buflen, int *retval)
 	int offset = 0;
 	struct file_handle *fhandle;
 
-	// if (fd < 0 || fd >= __OPEN_MAX){
-	// 	return EBADF;
-	// }
 
-	// // get the file handle the fd refers to
-	// of = curthread->t_filetable->file_handles[fd];
-	// if (of == NULL){
-	// 	// error if no file opened at fd in the file table
-	// 	return EBADF;
-	// }
 	result = file_lookup(fd, &fhandle);
 	if (result){
 		return result;
