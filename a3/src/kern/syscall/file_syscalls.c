@@ -325,7 +325,7 @@ sys_write(int fd, userptr_t buf, size_t len, int *retval)
 int
 sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 {
-	struct stat *vn_stat;
+	struct stat vn_stat;
 	int result;
 	off_t new_pos;
 	struct file_handle *fhandle;
@@ -367,12 +367,12 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 			new_pos = fhandle->cur_po + offset;
 			break;
 		case SEEK_END:
-			result = VOP_STAT(fhandle->fvnode, vn_stat);
+			result = VOP_STAT(fhandle->fvnode, &vn_stat);
 			if (result){
 				lock_release(fhandle->flock);
 				return result;
 			}
-			new_pos = vn_stat->st_size + offset;
+			new_pos = vn_stat.st_size + offset;
 			break;
 		default:
 			//whence mode is invalid
