@@ -126,34 +126,34 @@ int
 sys_dup2(int oldfd, int newfd, int *retval)
 {
 	struct file_handle *fhandle;
-	int result;
+	// int result;
 	//invalid fds
-	// if (oldfd < 0 || newfd < 0 || newfd >= __OPEN_MAX || oldfd >= __OPEN_MAX){
-	// 	return EBADF;
-	// }
-
-	// of = curthread->t_filetable->file_handles[oldfd];
-	// if (of == NULL) {
-	// 	// no open file in the file table at oldfd
-	// 	return EBADF; 
-	// }
-
-
-	result = file_lookup(oldfd, &fhandle);
-	if (result){
-		return result;
+	if (oldfd < 0 || newfd < 0 || newfd >= __OPEN_MAX || oldfd >= __OPEN_MAX){
+		return EBADF;
 	}
+
+	fhandle = curthread->t_filetable->file_handles[oldfd];
+	if (fhandle == NULL) {
+		// no open file in the file table at oldfd
+		return EBADF; 
+	}
+
+
+	// result = file_lookup(oldfd, &fhandle);
+	// if (result){
+	// 	return result;
+	// }
 
 	// if there is an opened file at newfd, close it
-	// if (curthread->t_filetable->file_handles[newfd] != NULL){
-	// 	file_close(newfd);
-	// }
-
-	// curthread->t_filetable->file_handles[newfd] = fhandle;
-	result = file_set(newfd, fhandle);
-	if (result){
-		return result;
+	if (curthread->t_filetable->file_handles[newfd] != NULL){
+		file_close(newfd);
 	}
+
+	curthread->t_filetable->file_handles[newfd] = fhandle;
+	// result = file_set(newfd, fhandle);
+	// if (result){
+	// 	return result;
+	// }
 
 	lock_acquire(fhandle->flock);
 	fhandle->ref_count++;
@@ -378,7 +378,12 @@ sys_lseek(int fd, off_t offset, int whence, off_t *retval)
 		return EINVAL;
 	}
 
-	//vop_tryseek ? to check if the new seek position is legal
+	//check if the new seek position is legal
+    result = VOP_TRYSEEK(fhandle->fvnode, new_pos);
+    if (result) {
+        lock_release(fhandle->flock);
+        return result;
+    }
 
 	// set the new seek position to the vnode
 	fhandle->cur_po = new_pos;
