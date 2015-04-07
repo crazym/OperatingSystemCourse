@@ -328,7 +328,7 @@ sfs_partialio(struct sfs_vnode *sv, struct uio *uio,
 	KASSERT(skipstart + len <= SFS_BLOCKSIZE);
 
 	/* Compute the block offset of this block in the file */
-	fileblock = uio->uio_offset / SFS_BLOCKSIZE;
+	fileblock = (uio->uio_offset-SFS_INLINED_BYTES) / SFS_BLOCKSIZE;
 
 	/* Get the disk block number */
 	result = sfs_bmap(sv, fileblock, doalloc, &diskblock);
@@ -393,7 +393,7 @@ sfs_blockio(struct sfs_vnode *sv, struct uio *uio)
 	off_t diskres;
 
 	/* Get the block number within the file */
-	fileblock = uio->uio_offset / SFS_BLOCKSIZE;
+	fileblock = (uio->uio_offset-SFS_INLINED_BYTES) / SFS_BLOCKSIZE;
 
 	/* Look up the disk block number */
 	result = sfs_bmap(sv, fileblock, doalloc, &diskblock);
@@ -418,7 +418,7 @@ sfs_blockio(struct sfs_vnode *sv, struct uio *uio)
 	 */
 	saveoff = uio->uio_offset;
 	diskoff = diskblock * SFS_BLOCKSIZE;
-	uio->uio_offset = diskoff;
+	uio->uio_offset = diskoff+SFS_INLINED_BYTES;
 
 	/*
 	 * Temporarily set the residue to be one block size.
@@ -434,7 +434,7 @@ sfs_blockio(struct sfs_vnode *sv, struct uio *uio)
 	 * Now, restore the original uio_offset and uio_resid and update 
 	 * them by the amount of I/O done.
 	 */
-	uio->uio_offset = (uio->uio_offset - diskoff) + saveoff;
+	uio->uio_offset = (uio->uio_offset - diskoff-SFS_INLINED_BYTES) + saveoff;
 	uio->uio_resid = (uio->uio_resid - diskres) + saveres;
 
 	return result;
@@ -473,10 +473,33 @@ sfs_io(struct sfs_vnode *sv, struct uio *uio)
 		}
 	}
 
+	// Do the offset to 0 thingy...
+	// Ie. if offset is < sfs_inline, then start in the inline, and then do the remaining...
+	if (uio->uio_offset < SFS_INLINED_BYTES) {
+		uint32_t len = SFS_INLINED_BYTES - uio->uio_offset;
+
+		// Do I/O
+		result = uiomove(sv->sv_i.sfi_inlinedata+uio->uio_offset, len, uio);
+
+		if (result) {
+			return result;
+		}
+
+		// Set dirty if written
+		if (uio->uio_rw == UIO_WRITE) {
+			sv->sv_dirty = true;
+		}
+		
+		/* If we're done, quit. */
+		if (uio->uio_resid==0) {
+			goto out;
+		}
+	}
+
 	/*
 	 * First, do any leading partial block.
 	 */
-	blkoff = uio->uio_offset % SFS_BLOCKSIZE;
+	blkoff = (uio->uio_offset-SFS_INLINED_BYTES) % SFS_BLOCKSIZE;
 	if (blkoff != 0) {
 		/* Number of bytes at beginning of block to skip */
 		uint32_t skip = blkoff;
@@ -504,7 +527,7 @@ sfs_io(struct sfs_vnode *sv, struct uio *uio)
 	/*
 	 * Now we should be block-aligned. Do the remaining whole blocks.
 	 */
-	KASSERT(uio->uio_offset % SFS_BLOCKSIZE == 0);
+	KASSERT((uio->uio_offset-SFS_INLINED_BYTES) % SFS_BLOCKSIZE == 0);
 	nblocks = uio->uio_resid / SFS_BLOCKSIZE;
 	for (i=0; i<nblocks; i++) {
 		result = sfs_blockio(sv, uio);
@@ -544,6 +567,39 @@ sfs_io(struct sfs_vnode *sv, struct uio *uio)
 ////////////////////////////////////////////////////////////
 //
 // Directory I/O
+
+/*
+ * A3: getdirentry:
+ *    vop_getdirentry - Read a single filename from a directory into a
+ *                      uio, choosing what name based on the offset
+ *                      field in the uio, and updating that field.
+ *                      Unlike with I/O on regular files, the value of
+ *                      the offset field is not interpreted outside
+ *                      the filesystem and thus need not be a byte
+ *                      count. However, the uio_resid field should be
+ *                      handled in the normal fashion.
+ *                      On non-directory objects, return ENOTDIR.
+ */
+
+// static
+// int
+// sfs_getdirentry(struct vnode *dir, struct uio *uio) {
+// 	// Ideas
+// 	// dir is a vnode representing a directory
+// 	// Should verify that vnode is indeed a directory
+// 	// Then write the filename of the vnode into the uio.
+// 	// Q: What named based on the offset field?
+// 	// What's the value of the offset field?
+// 	// What about uio_resid?
+
+// 	struct sfs_vnode *sv = dir->vn_data;
+
+// 	KASSERT(uio->uio_rw==UIO_READ);
+
+// 	vfs_biglock_acquire();
+
+// 	vfs_biglock_release();
+// }
 
 /*
  * Read the directory entry out of slot SLOT of a directory vnode.
@@ -1204,7 +1260,7 @@ sfs_truncate(struct vnode *v, off_t len)
 	struct sfs_fs *sfs = sv->sv_v.vn_fs->fs_data;
 
 	/* Length in blocks (divide rounding up) */
-	uint32_t blocklen = DIVROUNDUP(len, SFS_BLOCKSIZE);
+	uint32_t blocklen = DIVROUNDUP(len-SFS_INLINED_BYTES, SFS_BLOCKSIZE);
 
 	uint32_t i, j, block;
 	uint32_t idblock, baseblock, highblock;
